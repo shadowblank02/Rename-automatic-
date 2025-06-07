@@ -1,19 +1,74 @@
+import os
+import re
+import time
+import shutil
+import asyncio
+from datetime import datetime
+from PIL import Image
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
-from pyrogram.types import InputMediaDocument, Message 
-from PIL import Image
-from datetime import datetime
+from pyrogram.types import InputMediaDocument, Message
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
+from plugins.antinsfw import check_anti_nsfw
 from helper.utils import progress_for_pyrogram, humanbytes, convert
-from helper.database import madflixbotz
+from helper.database import codeflixbots
 from config import Config
-import os
-import time
-import re
 
 renaming_operations = {}
 
+active_sequences = {}
+message_ids = {}
+
+# Function to detect video quality from filename
+def detect_quality(file_name):
+    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(480p|720p|1080p)", file_name)
+    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
+
+@Client.on_message(filters.command("ssequence") & filters.private)
+async def start_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id in active_sequences:
+        await message.reply_text("A sequence is already active! Use /esequence to end it.")
+    else:
+        active_sequences[user_id] = []
+        message_ids[user_id] = []
+        msg = await message.reply_text("Sequence started! Send your files.")
+        message_ids[user_id].append(msg.message_id)
+
+@Client.on_message(filters.command("esequence") & filters.private)
+async def end_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in active_sequences:
+        await message.reply_text("No active sequence found!")
+        return
+
+    file_list = active_sequences.pop(user_id, [])
+    delete_messages = message_ids.pop(user_id, [])
+
+    if not file_list:
+        await message.reply_text("No files were sent in this sequence!")
+        return
+
+    # Sorting files based on quality
+    sorted_files = sorted(file_list, key=lambda f: (
+        detect_quality(f["file_name"]) if "file_name" in f else 4,
+        f["file_name"] if "file_name" in f else ""
+    ))
+
+    await message.reply_text(f"Sequence ended! Sending {len(sorted_files)} files back...")
+
+    # Sending sorted files
+    for file in sorted_files:
+        await client.send_document(message.chat.id, file["file_id"], caption=f"**{file.get('file_name', '')}**",)
+
+    # Deleting old messages (file added messages)
+    try:
+        await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
+    except Exception as e:
+        print(f"Error deleting messages: {e}")
+        
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
