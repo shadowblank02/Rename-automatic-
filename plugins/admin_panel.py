@@ -1,5 +1,5 @@
 from config import Config, Txt
-from helper.database import madflixbotz
+from helper.database import codeflixbots
 from pyrogram.types import Message
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
