@@ -52,6 +52,8 @@
  - Force subscribe available.
  - Supports ulimited renaming at a time.
  - Deploy to Koyeb + Heroku + Railway.
+ - sequence files
+ - metadata added
  - Automatically rename your files
  - Set mediatype to upload filetype
  - Developer Service 24x7. 🔥
@@ -64,6 +66,9 @@
 start - Check if the bot is running.
 autorename - To auto rename your files.
 setmedia - To set your media type preference.
+ssequence - to start sequence
+esequence - to end sequence
+metadata - to view your metadata
 tutorial - To know how to use me.
 viewthumb - To view current thumbnail.
 delthumb - To delete current thumbnail.
@@ -78,19 +83,6 @@ status - Check bot status [FOR ADMINS USE ONLY].
 
 
 ### ❤️ RESPECTING ❤️
-- [JishuDeveloper](https://github.com/JishuDeveloper)
-- [Trippy](https://github.com/Trippy07) 
-- [lntechnical](https://github.com/lntechnical2)
+- [Seishiro](https://github.com/seishiroxxnotteam)
 
-### 😍 BOTS CHANNEL 😍
-- [Madflix Botz](https://t.me/Madflix_Bots)
-- [Jishu Botz](https://t.me/JishuBotz)
 
-### 💕 CONTACT DEVELOPER 💕
-- [Jishu Developer](https://t.me/JishuDeveloper)
-- [Trippy](https://t.me/Trippy_xt)
-
-### ☕ BUY ME A COFFEE ☕
-- [PayPal](https://paypal.me/jishudeveloper/2.50USD)
-- [PhonePe](https://graph.org/file/6822df5af3a2e80637172.jpg)
-- [UPI](https://graph.org/file/b831109be4acff5c966d2.jpg)
