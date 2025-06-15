@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enmus
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors import UserNotParticipant
 from config import Config
@@ -21,13 +21,20 @@ async def not_subscribed(_, client, message):
 
 @Client.on_message(filters.private & filters.create(not_subscribed))
 async def forces_sub(client, message):
-    buttons = [[InlineKeyboardButton(text="•ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ•", url=f"https://t.me/{Config.FORCE_SUB}") ]]
-    text = "<b>Yᴏᴜ Bᴀᴋᴋᴀᴀ...!! \n<blockqoute>Jᴏɪɴ ᴍʏ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍʏ\n\nᴏᴛʜᴇʀᴡɪsᴇ Yᴏᴜ ᴀʀᴇ ɪɴ ʙɪɢ sʜɪᴛ...!!<blockqoute>\nAғᴛᴇʀ Jᴏɪɴɪɴɢ Cʜᴀɴɴᴇʟ ᴄʟɪᴄᴋ ᴏɴ ᴄʟɪᴄᴋ ʜᴇʀᴇ </b>"
-    try: button.append([[Inlinekeyboardbutton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{bot_username}")]]
+    buttons = [
+    [InlineKeyboardButton(text="•ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ•", url=f"https://t.me/{Config.FORCE_SUB}")]
+]
 
+text = "<b>Yᴏᴜ Bᴀᴋᴋᴀᴀ...!! \n<blockquote>Jᴏɪɴ ᴍʏ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍʏ\n\nᴏᴛʜᴇʀᴡɪsᴇ Yᴏᴜ ᴀʀᴇ ɪɴ ʙɪɢ sʜɪᴛ...!!</blockquote>\nAғᴛᴇʀ Jᴏɪɴɪɴɢ Cʜᴀɴɴᴇʟ ᴄʟɪᴄᴋ ᴏɴ ᴄʟɪᴄᴋ ʜᴇʀᴇ </b>"
 
+try:
+    buttons.append([InlineKeyboardButton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{bot_username}?start")])
+except Exception as e:
+    print(f"An error occurred: {e}")
 
-# Jishu Developer 
-# Don't Remove Credit 🥺
-# Telegram Channel @Madflix_Bots
-# Developer @JishuDeveloper
+try:
+    user = await client.get_chat_member(Config.FORCE_SUB, message.from_user.id)
+    if user.status == enums.ChatMemberStatus.BANNED:
+        return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me")
+except UserNotParticipant:
+    return await message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(buttons))
