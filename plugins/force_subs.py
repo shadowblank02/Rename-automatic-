@@ -35,6 +35,4 @@ except Exception as e:
 try:
     user = await client.get_chat_member(Config.FORCE_SUB, message.from_user.id)
     if user.status == enums.ChatMemberStatus.BANNED:
-        return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me")
-except UserNotParticipant:
-    return await message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(buttons))
+        return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me"
