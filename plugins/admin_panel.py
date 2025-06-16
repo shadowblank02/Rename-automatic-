@@ -18,7 +18,7 @@ async def restart_bot(b, m):
     global is_restarting
     if not is_restarting:
         is_restarting = True
-        await m.reply_text("**🔄 Restarting.....**")
+        await m.reply_text("**Hᴇʏ...!! Oᴡɴᴇʀ/Aᴅᴍɪɴ Jᴜsᴛ ʀᴇʟᴀx ɪᴀᴍ ʀᴇsᴛᴀʀᴛɪɴɢ...!!**")
 
         # Gracefully stop the bot's event loop
         b.stop()
@@ -36,8 +36,8 @@ async def tutorial(bot,message):
 	    text =Txt.FILE_NAME_TXT.format(format_template=format_template),
 	    disable_web_page_preview=True,
 	    reply_markup=InlineKeyboardMarkup([
-        			[InlineKeyboardButton("🦋 Admin",url = "https://t.me/seishirotalkerbot"), 
-        			InlineKeyboardButton("⚡ Main hub",url = "https://t.me/seishiro_atanime") ]])
+        			[InlineKeyboardButton("•Sᴜᴘᴘᴏʀᴛ•",url = "https://t.me/BOTSKINGDOMSGROUP"), 
+        			InlineKeyboardButton("•⚡Main hub•",url = "https://t.me/botskingdoms") ]])
 	)
 
 
