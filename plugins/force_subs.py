@@ -28,11 +28,9 @@ async def forces_sub(client, message):
 text = "<b>Yᴏᴜ Bᴀᴋᴋᴀᴀ...!! \n<blockquote>Jᴏɪɴ ᴍʏ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍʏ\n\nᴏᴛʜᴇʀᴡɪsᴇ Yᴏᴜ ᴀʀᴇ ɪɴ ʙɪɢ sʜɪᴛ...!!</blockquote>\nAғᴛᴇʀ Jᴏɪɴɪɴɢ Cʜᴀɴɴᴇʟ ᴄʟɪᴄᴋ ᴏɴ ᴄʟɪᴄᴋ ʜᴇʀᴇ </b>"
 
 try:
-    buttons.append([InlineKeyboardButton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{bot_username}?start")])
-except Exception as e:
-    print(f"An error occurred: {e}")
-
-try:
     user = await client.get_chat_member(Config.FORCE_SUB, message.from_user.id)
     if user.status == enums.ChatMemberStatus.BANNED:
-        return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me"
+        return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me")
+    buttons.append([InlineKeyboardButton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{bot_username}?start")])
+except UserNotParticipant:
+    return await message.reply_text(f"Yᴏᴜ ʙᴀᴋᴋᴀᴀ...!! Jᴏɪɴ ɪᴛ...", reply_markup=InlineKeyboardMarkup(buttons))
