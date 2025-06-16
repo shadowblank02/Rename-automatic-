@@ -18,6 +18,7 @@
 * `DB_NAME` - Your database name from mongoDB. (Optional)
 * `FORCE_SUB` - Your force sub channel username without @ (Optional)
 * `START_PIC` - Start message photo. (Optional)
+* `FSUB_PIC` - force sub message photo. (Optional)
 
 
 
