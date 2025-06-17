@@ -136,7 +136,7 @@ async def auto_rename_files(client, message):
             "file_name": file_name if file_name else "Unknown"
         }
         active_sequences[user_id].append(file_info)
-        await message.reply_text(f"File received in sequence...")
+        await message.reply_text(f"Wᴇᴡ...Fɪʟᴇ ʀᴇᴄᴇɪᴠᴇᴅ ɪɴ sᴇǫᴜᴇɴᴄᴇ...Nᴏᴡ ᴜsᴇ /end_sequence....Dᴜᴅᴇ...!!")
         return
 
     # Auto-Rename Logic (Runs only when not in sequence mode)
