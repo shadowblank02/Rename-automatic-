@@ -40,14 +40,14 @@ async def start_sequence(client, message: Message):
 async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
-        await message.reply_text("No active sequence found!")
+        await message.reply_text("Wʜᴀᴛ ᴀʀᴇ ʏᴏᴜ ᴅᴏɪɴɢ ɴᴏ ᴀᴄᴛɪᴠᴇ sᴇǫᴜᴇɴᴄᴇ ғᴏᴜɴᴅ...!!")
         return
 
     file_list = active_sequences.pop(user_id, [])
     delete_messages = message_ids.pop(user_id, [])
 
     if not file_list:
-        await message.reply_text("No files were sent in this sequence!")
+        await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
         return
 
     # Sorting files based on quality
@@ -56,7 +56,7 @@ async def end_sequence(client, message: Message):
         f["file_name"] if "file_name" in f else ""
     ))
 
-    await message.reply_text(f"Sequence ended! Sending {len(sorted_files)} files back...")
+    await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ ɴᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {len(sorted_files)} Fɪʟᴇs ʙᴀᴄᴋ...Sᴏ ᴡᴀɪᴛ...!!")
 
     # Sending sorted files
     for file in sorted_files:
