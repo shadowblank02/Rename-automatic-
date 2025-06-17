@@ -24,7 +24,7 @@ def detect_quality(file_name):
     match = re.search(r"(480p|720p|1080p)", file_name)
     return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
 
-@Client.on_message(filters.command("ssequence") & filters.private)
+@Client.on_message(filters.command("start_sequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id in active_sequences:
@@ -35,7 +35,7 @@ async def start_sequence(client, message: Message):
         msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs Nᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.message_id)
 
-@Client.on_message(filters.command("esequence") & filters.private)
+@Client.on_message(filters.command("end_sequence") & filters.private)
 async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
