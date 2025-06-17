@@ -163,12 +163,15 @@ async def auto_rename_files(client, message):
     else:
         return await message.reply_text("Unsupported File Type")
 
-    # Check whether the file is already being renamed or has been renamed recently
+    # Anti-NSFW check
+    if await check_anti_nsfw(file_name, message):
+        return await message.reply_text("NSFW content detected. File upload rejected.")
+
     if file_id in renaming_operations:
         elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
         if elapsed_time < 10:
-            print("File is being ignored as it is currently being renamed or was renamed recently.")
             return
+
     renaming_operations[file_id] = datetime.now()
 
     # Extract episode number and qualities
