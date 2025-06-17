@@ -200,7 +200,7 @@ async def auto_rename_files(client, message):
     os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
     os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
-    download_msg = await message.reply_text("**__Downloading...__**")
+    download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!")
 
     ph_path = None  # initialize to avoid UnboundLocalError
 
