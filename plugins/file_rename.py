@@ -29,7 +29,7 @@ def detect_quality(file_name):
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id in active_sequences:
-        await message.reply_text("A sequence is already active! Use /esequence to end it.")
+        await message.reply_text("Hᴇʏ ᴅᴜᴅᴇ...!! A sᴇǫᴜᴇɴᴄᴇ ɪs ᴀʟʀᴇᴀᴅʏ ᴀᴄᴛɪᴠᴇ! Usᴇ /end_sequence ᴛᴏ ᴇɴᴅ ɪᴛ.")
     else:
         active_sequences[user_id] = []
         message_ids[user_id] = []
