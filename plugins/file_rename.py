@@ -209,7 +209,7 @@ async def auto_rename_files(client, message):
             message,
             file_name=renamed_file_path,
             progress=progress_for_pyrogram,
-            progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ʙʀᴏ....!!", download_msg, time.time()),
+            progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ....!!", download_msg, time.time()),
         )
     except Exception as e:
         del renaming_operations[file_id]
@@ -264,7 +264,7 @@ async def auto_rename_files(client, message):
         path = metadata_file_path
 
         # Upload the file
-        upload_msg = await download_msg.edit("**__Yᴏᴏ...Dᴜᴅᴇ Nᴏᴡ ɪᴀᴍ ᴜᴘʟᴏᴀᴅɪɴɢ...!!__**")
+        upload_msg = await download_msg.edit("Yᴏᴏ...Dᴜᴅᴇ Nᴏᴡ ɪᴀᴍ ᴜᴘʟᴏᴀᴅɪɴɢ...!!")
 
         c_caption = await codeflixbots.get_caption(message.chat.id)
         c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
