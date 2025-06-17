@@ -33,7 +33,7 @@ async def start_sequence(client, message: Message):
     else:
         active_sequences[user_id] = []
         message_ids[user_id] = []
-        msg = await message.reply_text("Sequence started! Send your files.")
+        msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs Nᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.message_id)
 
 @Client.on_message(filters.command("esequence") & filters.private)
