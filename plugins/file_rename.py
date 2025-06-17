@@ -209,13 +209,13 @@ async def auto_rename_files(client, message):
             message,
             file_name=renamed_file_path,
             progress=progress_for_pyrogram,
-            progress_args=("Download Started...", download_msg, time.time()),
+            progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ʙʀᴏ....!!", download_msg, time.time()),
         )
     except Exception as e:
         del renaming_operations[file_id]
         return await download_msg.edit(f"**Download Error:** {e}")
 
-    await download_msg.edit("**__Renaming and Adding Metadata...__**")
+    await download_msg.edit("**__Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!__**")
 
     try:
         # Rename the file
@@ -264,7 +264,7 @@ async def auto_rename_files(client, message):
         path = metadata_file_path
 
         # Upload the file
-        upload_msg = await download_msg.edit("**__Uploading...__**")
+        upload_msg = await download_msg.edit("**__Yᴏᴏ...Dᴜᴅᴇ Nᴏᴡ ɪᴀᴍ ᴜᴘʟᴏᴀᴅɪɴɢ...!!__**")
 
         c_caption = await codeflixbots.get_caption(message.chat.id)
         c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
@@ -297,7 +297,7 @@ async def auto_rename_files(client, message):
                     thumb=ph_path,
                     caption=caption,
                     progress=progress_for_pyrogram,
-                    progress_args=("Upload Started...", upload_msg, time.time()),
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
                 )
             elif media_type == "video":
                 await client.send_video(
@@ -307,7 +307,7 @@ async def auto_rename_files(client, message):
                     thumb=ph_path,
                     duration=0,
                     progress=progress_for_pyrogram,
-                    progress_args=("Upload Started...", upload_msg, time.time()),
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
                 )
             elif media_type == "audio":
                 await client.send_audio(
@@ -317,7 +317,7 @@ async def auto_rename_files(client, message):
                     thumb=ph_path,
                     duration=0,
                     progress=progress_for_pyrogram,
-                    progress_args=("Upload Started...", upload_msg, time.time()),
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
                 )
         except Exception as e:
             if os.path.exists(renamed_file_path):
