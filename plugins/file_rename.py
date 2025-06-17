@@ -200,7 +200,7 @@ async def auto_rename_files(client, message):
     os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
     os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
-    download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!")
+    download_msg = await message.reply_text("**__Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!__**")
 
     ph_path = None  # initialize to avoid UnboundLocalError
 
@@ -264,7 +264,7 @@ async def auto_rename_files(client, message):
         path = metadata_file_path
 
         # Upload the file
-        upload_msg = await download_msg.edit("Yᴏᴏ...Dᴜᴅᴇ Nᴏᴡ ɪᴀᴍ ᴜᴘʟᴏᴀᴅɪɴɢ...!!")
+        upload_msg = await download_msg.edit("**__Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!__**")
 
         c_caption = await codeflixbots.get_caption(message.chat.id)
         c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
