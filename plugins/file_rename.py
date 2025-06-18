@@ -224,11 +224,6 @@ async def auto_rename_files(client, message):
 
         # Prepare metadata command
         ffmpeg_cmd = shutil.which('ffmpeg')
-        if not ffmpeg_cmd:
-            await download_msg.edit("**FFmpeg is not installed on the server.**")
-            del renaming_operations[file_id]
-            return
-
         metadata_command = [
             ffmpeg_cmd,
             '-i', path,
