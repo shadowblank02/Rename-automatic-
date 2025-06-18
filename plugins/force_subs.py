@@ -23,12 +23,12 @@ async def forces_sub(client, message):
     buttons = [
         [InlineKeyboardButton(text="•ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ•", url=f"https://t.me/{Config.FORCE_SUB}")]
     ]
-    text = "<b>Yᴏᴜ Bᴀᴋᴋᴀᴀ...!! \n<blockquote>Jᴏɪɴ ᴍʏ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍʏ\n\nᴏᴛʜᴇʀᴡɪsᴇ Yᴏᴜ ᴀʀᴇ ɪɴ ʙɪɢ sʜɪᴛ...!!</blockquote>\nAғᴛᴇʀ Jᴏɪɴɪɴɢ Cʜᴀɴɴᴇʟ ᴄʟɪᴄᴋ ᴏɴ ᴄʟɪᴄᴋ ʜᴇʀᴇ </b>"
+    text = "<b>Yᴏᴜ Bᴀᴋᴋᴀᴀ...!! \n<blockquote>Jᴏɪɴ ᴍʏ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍʏ\n\nᴏᴛʜᴇʀᴡɪsᴇ Yᴏᴜ ᴀʀᴇ ɪɴ ʙɪɢ sʜɪᴛ...!!</blockquote>\n<blockquote>Aғᴛᴇʀ Jᴏɪɴɪɴɢ Cʜᴀɴɴᴇʟ ᴄʟɪᴄᴋ ᴏɴ ᴄʟɪᴄᴋ ʜᴇʀᴇ</blockquote></b>"
     try:
         user = await client.get_chat_member(Config.FORCE_SUB, message.from_user.id)
         if user.status == enums.ChatMemberStatus.BANNED:
             return await client.send_message(message.from_user.id, text="Sorry You Are Banned To Use Me")
-        buttons.append([InlineKeyboardButton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{Config.BOT_USERNAME}?start")])
+        buttons.append([InlineKeyboardButton(text="Cʟɪᴄᴋ ʜᴇʀᴇ", url=f"https://t.me/{Config.BOT_USERNAME}?start=true")])
     except UserNotParticipant:
         if Config.FSUB_PIC:
             await message.reply_photo(
