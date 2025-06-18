@@ -14,13 +14,13 @@ async def start(client, message: Message):
     await codeflixbots.add_user(client, message)
 
     # Initial interactive text and sticker sequence
-    m = await message.reply_text("ᴏɴᴇᴇ-ᴄʜᴀɴ!, ʜᴏᴡ ᴀʀᴇ ʏᴏᴜ \nᴡᴀɪᴛ ᴀ ᴍᴏᴍᴇɴᴛ. . .")
+    m = await message.reply_text("Wᴇᴡ...Hᴏᴡ ᴀʀᴇ ʏᴏᴜ ᴅᴜᴅᴇ \nᴡᴀɪᴛ ᴀ ᴍᴏᴍᴇɴᴛ. . .")
     await asyncio.sleep(0.4)
     await m.edit_text("🎊")
     await asyncio.sleep(0.5)
     await m.edit_text("⚡")
     await asyncio.sleep(0.5)
-    await m.edit_text("ꜱᴛᴀʀᴛɪɴɢ...")
+    await m.edit_text("**Iᴀᴍ sᴛᴀʀᴛɪɴɢ...!!**")
     await asyncio.sleep(0.4)
     await m.delete()
 
