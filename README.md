@@ -68,8 +68,8 @@
 start - Check if the bot is running.
 autorename - To auto rename your files.
 setmedia - To set your media type preference.
-ssequence - to start sequence
-esequence - to end sequence
+start_sequence - to start sequence
+end_sequence - to end sequence
 metadata - to view your metadata
 tutorial - To know how to use me.
 viewthumb - To view current thumbnail.
