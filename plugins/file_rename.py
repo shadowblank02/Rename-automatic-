@@ -99,8 +99,8 @@ def extract_quality(filename):
     return "Unknown"
 
 def extract_episode_number(filename):
-
-match = re.search(pattern1, filename)
+    # This line was incorrectly indented in your original code
+    match = re.search(pattern1, filename)
     if match:
         return match.group(2)
     match = re.search(pattern2, filename)
@@ -197,7 +197,7 @@ async def auto_rename_files(client, message):
 
     ph_path = None
 
-try:
+    try:
         path = await client.download_media(
             message,
             file_name=renamed_file_path,
@@ -299,8 +299,7 @@ try:
         elif media_type == "video":
             await client.send_video(
                 message.chat.id,
-
-video=path,
+                video=path,
                 caption=caption,
                 thumb=ph_path,
                 duration=0,
