@@ -235,18 +235,6 @@ async def auto_rename_files(client, message):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
-        except asyncio.TimeoutError:
-            process.kill()
-            await download_msg.edit("Metadata addition timeout! File possibly unsupported or too large.")
-            del renaming_operations[file_id]
-            return
-    except Exception as e:
-        await download_msg.edit(f"Metadata Error: {e}")
-        del renaming_operations[file_id]
-        return
-
     if process.returncode != 0:
         error_message = stderr.decode()
         await download_msg.edit(f"Metadata Error:\n{error_message}")
