@@ -32,18 +32,14 @@ class Bot(Client):
         self.mention = me.mention
         self.username = me.username
         self.uptime = Config.BOT_UPTIME
-
         if Config.WEBHOOK:
             app = web.AppRunner(await web_server())
             await app.setup()
             port = int(os.environ.get("PORT", 8080))
             await web.TCPSite(app, "0.0.0.0", port).start()
-
         print(f"{me.first_name} Is Started.....✨️")
-
         uptime_seconds = int(time.time() - self.start_time)
         uptime_string = str(timedelta(seconds=uptime_seconds))
-
         for chat_id in [Config.LOG_CHANNEL, SUPPORT_CHAT]:
             try:
                 curr = datetime.now(timezone("Asia/Kolkata"))
