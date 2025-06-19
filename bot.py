@@ -11,9 +11,10 @@ import pyromod
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import time
+import threading
 
 pyrogram.utils.MIN_CHANNEL_ID = -1002822095762 # Setting SUPPORT_CHAT directly here
-SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@bots_kingdoms_chat")
+SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
 
 class Bot(Client):
     def __init__(self):
@@ -36,10 +37,6 @@ class Bot(Client):
             self.mention = me.mention
             self.username = me.username
             self.uptime = Config.BOT_UPTIME
-            if Config.WEBHOOK:
-                app = web.AppRunner(await web_server())
-                await app.setup()
-                await web.TCPSite(app, "0.0.0.0", 8080).start()
             print(f"{me.first_name} Is Started.....✨️")
             # Calculate uptime using timedelta
             uptime_seconds = int(time.time() - self.start_time)
@@ -54,12 +51,12 @@ class Bot(Client):
                         chat_id=chat_id,
                         photo=Config.START_PIC,
                         caption=(
-                            "**  Iᴀᴍ ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !**\n\n"
+                            "**I ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !**\n\n"
                             f"ɪ ᴅɪᴅɴ'ᴛ sʟᴇᴘᴛ sɪɴᴄᴇ​: `{uptime_string}`"
                         ),
                         reply_markup=InlineKeyboardMarkup(
                             [[
-                                InlineKeyboardButton("ᴜᴘᴅᴀᴛᴇs", url="https://t.me/botskingdomschat")
+                                InlineKeyboardButton("ᴜᴘᴅᴀᴛᴇs", url="https://t.me/Botskingdoms")
                             ]]
                         )
                     )
@@ -71,4 +68,14 @@ class Bot(Client):
             # Code to be executed regardless of an exception
             pass
 
-Bot().run()
+def run_web_server():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    app = web.AppRunner(web_server())
+    loop.run_until_complete(app.setup())
+    web.TCPSite(app, "0.0.0.0", 8080).start()
+    loop.run_forever()
+
+if __name__ == "__main__":
+    threading.Thread(target=run_web_server).start()
+    Bot().run()
