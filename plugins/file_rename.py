@@ -19,7 +19,6 @@ renaming_operations = {}
 active_sequences = {}
 message_ids = {}
 
-# Function to detect video quality from filename
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
     match = re.search(r"(480p|720p|1080p)", file_name)
@@ -50,7 +49,6 @@ async def end_sequence(client, message: Message):
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
         return
 
-    # Sorting files based on quality
     sorted_files = sorted(file_list, key=lambda f: (
         detect_quality(f["file_name"]) if "file_name" in f else 4,
         f["file_name"] if "file_name" in f else ""
@@ -58,17 +56,14 @@ async def end_sequence(client, message: Message):
 
     await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ ɴᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {len(sorted_files)} Fɪʟᴇs ʙᴀᴄᴋ...Sᴏ ᴡᴀɪᴛ...!!")
 
-    # Sending sorted files
     for file in sorted_files:
-        await client.send_document(message.chat.id, file["file_id"], caption=f"**{file.get('file_name', '')}**",)
+        await client.send_document(message.chat.id, file["file_id"], caption=f"{file.get('file_name', '')}",)
 
-    # Deleting old messages (file added messages)
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
     except Exception as e:
         print(f"Error deleting messages: {e}")
 
-# Regex patterns for episode/quality extraction
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
 pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
@@ -104,7 +99,8 @@ def extract_quality(filename):
     return "Unknown"
 
 def extract_episode_number(filename):
-    match = re.search(pattern1, filename)
+
+match = re.search(pattern1, filename)
     if match:
         return match.group(2)
     match = re.search(pattern2, filename)
@@ -139,7 +135,6 @@ async def auto_rename_files(client, message):
         await message.reply_text(f"Wᴇᴡ...Fɪʟᴇ ʀᴇᴄᴇɪᴠᴇᴅ ɪɴ sᴇǫᴜᴇɴᴄᴇ...Nᴏᴡ ᴜsᴇ /end_sequence....Dᴜᴅᴇ...!!")
         return
 
-    # Auto-Rename Logic (Runs only when not in sequence mode)
     format_template = await codeflixbots.get_format_template(user_id)
     media_preference = await codeflixbots.get_media_preference(user_id)
 
@@ -163,7 +158,6 @@ async def auto_rename_files(client, message):
     else:
         return await message.reply_text("Unsupported File Type")
 
-    # Anti-NSFW check
     if await check_anti_nsfw(file_name, message):
         return await message.reply_text("NSFW content detected. File upload rejected.")
 
@@ -174,7 +168,6 @@ async def auto_rename_files(client, message):
 
     renaming_operations[file_id] = datetime.now()
 
-    # Extract episode number and qualities
     episode_number = extract_episode_number(file_name)
     print(f"Extracted Episode Number: {episode_number}")
 
@@ -188,7 +181,7 @@ async def auto_rename_files(client, message):
             if quality_placeholder in template:
                 extracted_qualities = extract_quality(file_name)
                 if extracted_qualities == "Unknown":
-                    await message.reply_text("**__I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...__**")
+                    await message.reply_text("I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...")
                     del renaming_operations[file_id]
                     return
                 template = template.replace(quality_placeholder, "".join(extracted_qualities))
@@ -200,11 +193,11 @@ async def auto_rename_files(client, message):
     os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
     os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
-    download_msg = await message.reply_text("**__Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!__**")
+    download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!")
 
-    ph_path = None  # initialize to avoid UnboundLocalError
+    ph_path = None
 
-    try:
+try:
         path = await client.download_media(
             message,
             file_name=renamed_file_path,
@@ -213,128 +206,137 @@ async def auto_rename_files(client, message):
         )
     except Exception as e:
         del renaming_operations[file_id]
-        return await download_msg.edit(f"**Download Error:** {e}")
+        return await download_msg.edit(f"Download Error: {e}")
 
-    await download_msg.edit("**__Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!__**")
+    await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
+
+    # --------- METADATA SECTION WITH FIX --------------
+    ffmpeg_cmd = shutil.which('ffmpeg')
+    if not ffmpeg_cmd:
+        await download_msg.edit("FFmpeg is not installed or not found in PATH.")
+        del renaming_operations[file_id]
+        return
+
+    metadata_command = [
+        ffmpeg_cmd,
+        '-i', path,
+        '-metadata', f'title={await codeflixbots.get_title(user_id)}',
+        '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
+        '-metadata', f'author={await codeflixbots.get_author(user_id)}',
+        '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
+        '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
+        '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
+        '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
+        '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
+        '-map', '0',
+        '-c', 'copy',
+        '-loglevel', 'error',
+        metadata_file_path
+    ]
 
     try:
-        # Rename the file
-        os.rename(path, renamed_file_path)
-        path = renamed_file_path
-
-        # Prepare metadata command
-        ffmpeg_cmd = shutil.which('ffmpeg')
-        metadata_command = [
-            ffmpeg_cmd,
-            '-i', path,
-            '-metadata', f'title={await codeflixbots.get_title(user_id)}',
-            '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
-            '-metadata', f'author={await codeflixbots.get_author(user_id)}',
-            '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-            '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
-            '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
-            '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
-            '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
-            '-map', '0',
-            '-c', 'copy',
-            '-loglevel', 'error',
-            metadata_file_path
-        ]
-
-        # Execute the metadata command
         process = await asyncio.create_subprocess_exec(
             *metadata_command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await process.communicate()
-
-        if process.returncode != 0:
-            error_message = stderr.decode()
-            await download_msg.edit(f"**Metadata Error:**\n{error_message}")
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
+        except asyncio.TimeoutError:
+            process.kill()
+            await download_msg.edit("Metadata addition timeout! File possibly unsupported or too large.")
             del renaming_operations[file_id]
             return
+    except Exception as e:
+        await download_msg.edit(f"Metadata Error: {e}")
+        del renaming_operations[file_id]
+        return
 
-        # Use the new metadata file path for the upload
-        path = metadata_file_path
+    if process.returncode != 0:
+        error_message = stderr.decode()
+        await download_msg.edit(f"Metadata Error:\n{error_message}")
+        del renaming_operations[file_id]
+        return
+    # --------- END METADATA SECTION WITH FIX --------------
 
-        # Upload the file
-        upload_msg = await download_msg.edit("**__Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!__**")
+    path = metadata_file_path
 
-        c_caption = await codeflixbots.get_caption(message.chat.id)
-        c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
+    upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇs...!!")
 
-        caption = (
-            c_caption.format(
-                filename=renamed_file_name,
-                filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
-                duration=convert(0),
-            )
-            if c_caption
-            else f"**{renamed_file_name}**"
+    c_caption = await codeflixbots.get_caption(message.chat.id)
+    c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
+
+    caption = (
+        c_caption.format(
+            filename=renamed_file_name,
+            filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
+            duration=convert(0),
         )
+        if c_caption
+        else f"{renamed_file_name}"
+    )
 
-        if c_thumb:
-            ph_path = await client.download_media(c_thumb)
-        elif media_type == "video" and getattr(message.video, "thumbs", None):
-            ph_path = await client.download_media(message.video.thumbs[0].file_id)
+    if c_thumb:
+        ph_path = await client.download_media(c_thumb)
+    elif media_type == "video" and getattr(message.video, "thumbs", None):
+        ph_path = await client.download_media(message.video.thumbs[0].file_id)
 
-        if ph_path:
-            img = Image.open(ph_path).convert("RGB")
-            img = img.resize((320, 320))
-            img.save(ph_path, "JPEG")
+    if ph_path:
+        img = Image.open(ph_path).convert("RGB")
+        img = img.resize((320, 320))
+        img.save(ph_path, "JPEG")
 
-        try:
-            if media_type == "document":
-                await client.send_document(
-                    message.chat.id,
-                    document=path,
-                    thumb=ph_path,
-                    caption=caption,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                )
-            elif media_type == "video":
-                await client.send_video(
-                    message.chat.id,
-                    video=path,
-                    caption=caption,
-                    thumb=ph_path,
-                    duration=0,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                )
-            elif media_type == "audio":
-                await client.send_audio(
-                    message.chat.id,
-                    audio=path,
-                    caption=caption,
-                    thumb=ph_path,
-                    duration=0,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                )
-        except Exception as e:
-            if os.path.exists(renamed_file_path):
-                os.remove(renamed_file_path)
-            if ph_path and os.path.exists(ph_path):
-                os.remove(ph_path)
-            del renaming_operations[file_id]
-            return await upload_msg.edit(f"Error: {e}")
+    try:
+        if media_type == "document":
+            await client.send_document(
+                message.chat.id,
+                document=path,
+                thumb=ph_path,
+                caption=caption,
+                progress=progress_for_pyrogram,
+                progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+            )
+        elif media_type == "video":
+            await client.send_video(
+                message.chat.id,
 
-        await download_msg.delete() 
-        if os.path.exists(path):
-            os.remove(path)
-        if ph_path and os.path.exists(ph_path):
-            os.remove(ph_path)
-
-    finally:
-        # Clean up
+video=path,
+                caption=caption,
+                thumb=ph_path,
+                duration=0,
+                progress=progress_for_pyrogram,
+                progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+            )
+        elif media_type == "audio":
+            await client.send_audio(
+                message.chat.id,
+                audio=path,
+                caption=caption,
+                thumb=ph_path,
+                duration=0,
+                progress=progress_for_pyrogram,
+                progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+            )
+    except Exception as e:
         if os.path.exists(renamed_file_path):
             os.remove(renamed_file_path)
-        if os.path.exists(metadata_file_path):
-            os.remove(metadata_file_path)
         if ph_path and os.path.exists(ph_path):
             os.remove(ph_path)
-        if file_id in renaming_operations:
-            del renaming_operations[file_id]
+        del renaming_operations[file_id]
+        return await upload_msg.edit(f"Error: {e}")
+
+    await download_msg.delete()
+    if os.path.exists(path):
+        os.remove(path)
+    if ph_path and os.path.exists(ph_path):
+        os.remove(ph_path)
+
+    # Clean up
+    if os.path.exists(renamed_file_path):
+        os.remove(renamed_file_path)
+    if os.path.exists(metadata_file_path):
+        os.remove(metadata_file_path)
+    if ph_path and os.path.exists(ph_path):
+        os.remove(ph_path)
+    if file_id in renaming_operations:
+        del renaming_operations[file_id]
