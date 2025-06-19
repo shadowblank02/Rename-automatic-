@@ -37,7 +37,12 @@ class Bot(Client):
             self.mention = me.mention
             self.username = me.username
             self.uptime = Config.BOT_UPTIME
-            print(f"{me.first_name} Is Started.....✨️")
+            if Config.WEBHOOK:
+            app = web.AppRunner(await web_server())
+            await app.setup()       
+            await web.TCPSite(app, "0.0.0.0", 8080).start()     
+        print(f"{me.first_name} Is Started.....✨️")
+
             # Calculate uptime using timedelta
             uptime_seconds = int(time.time() - self.start_time)
             uptime_string = str(timedelta(seconds=uptime_seconds))
@@ -64,20 +69,5 @@ class Bot(Client):
                     print(f"Failed to send message in chat {chat_id}: {e}")
         except Exception as e:
             print(f"An error occurred: {e}")
-        finally:
-            # Code to be executed regardless of an exception
-            pass
-
-def run_web_server():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    app = web_server()
-    runner = web.AppRunner(app)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    loop.run_until_complete(site.start())
-    loop.run_forever()
-
-if name == "main":
-    threading.Thread(target=run_web_server).start()
+    
     Bot().run()
