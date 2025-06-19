@@ -241,10 +241,6 @@ try:
         await download_msg.edit(f"Metadata Error:\n{error_message}")
         del renaming_operations[file_id]
         return
-except Exception as e:
-    await download_msg.edit(f"Metadata Error: {e}")
-    del renaming_operations[file_id]
-    return
     # --------- END METADATA SECTION WITH FIX --------------
 
     path = metadata_file_path
