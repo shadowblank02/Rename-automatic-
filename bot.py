@@ -1,7 +1,7 @@
 import aiohttp, asyncio, warnings, pytz
 from datetime import datetime, timedelta
 from pytz import timezone
-from pyrogram import Client, __version__
+from pyrogram import Client, version
 from pyrogram.raw.all import layer
 from config import Config
 from aiohttp import web
@@ -17,8 +17,8 @@ pyrogram.utils.MIN_CHANNEL_ID = -1002822095762 # Setting SUPPORT_CHAT directly h
 SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
 
 class Bot(Client):
-    def __init__(self):
-        super().__init__(
+    def init(self):
+        super().init(
             name="codeflixbots",
             api_id=Config.API_ID,
             api_hash=Config.API_HASH,
@@ -51,8 +51,8 @@ class Bot(Client):
                         chat_id=chat_id,
                         photo=Config.START_PIC,
                         caption=(
-                            "**I ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !**\n\n"
-                            f"ɪ ᴅɪᴅɴ'ᴛ sʟᴇᴘᴛ sɪɴᴄᴇ​: `{uptime_string}`"
+                            "I ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !\n\n"
+                            f"ɪ ᴅɪᴅɴ'ᴛ sʟᴇᴘᴛ sɪɴᴄᴇ: {uptime_string}"
                         ),
                         reply_markup=InlineKeyboardMarkup(
                             [[
@@ -71,11 +71,13 @@ class Bot(Client):
 def run_web_server():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    app = web.AppRunner(web_server())
-    loop.run_until_complete(app.setup())
-    web.TCPSite(app, "0.0.0.0", 8080).start()
+    app = web_server()
+    runner = web.AppRunner(app)
+    loop.run_until_complete(runner.setup())
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    loop.run_until_complete(site.start())
     loop.run_forever()
 
-if __name__ == "__main__":
+if name == "main":
     threading.Thread(target=run_web_server).start()
     Bot().run()
