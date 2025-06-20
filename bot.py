@@ -10,8 +10,8 @@ from route import web_server
 import pyrogram.utils
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-pyrogram.utils.MIN_CHANNEL_ID = -1002258136705
-SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@ravitimepass")
+pyrogram.utils.MIN_CHANNEL_ID = -1002822095762
+SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdoms")
 
 class Bot(Client):
     def __init__(self):
@@ -49,11 +49,11 @@ class Bot(Client):
                     chat_id=chat_id,
                     photo=Config.START_PIC,
                     caption=(
-                        "**9Anime Zoro ɪs ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !**\n\n"
+                        "**I ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ !**\n\n"
                         f"ɪ ᴅɪᴅɴ'ᴛ sʟᴇᴘᴛ sɪɴᴄᴇ​: `{uptime_string}`"
                     ),
                     reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("ᴜᴘᴅᴀᴛᴇs", url="https://t.me/Blakite_Ravii")]]
+                        [[InlineKeyboardButton("ᴜᴘᴅᴀᴛᴇs", url="https://t.me/botskingdoms")]]
                     )
                 )
             except Exception as e:
