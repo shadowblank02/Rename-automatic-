@@ -11,7 +11,7 @@ import pyrogram.utils
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 pyrogram.utils.MIN_CHANNEL_ID = -1002822095762
-SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdoms")
+SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
 
 class Bot(Client):
     def __init__(self):
