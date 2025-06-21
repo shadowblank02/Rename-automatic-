@@ -16,7 +16,7 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-semaphore = asyncio.Semaphore(1)  # Allow up to 5 concurrent tasks
+semaphore = asyncio.Semaphore(1)  # Do not change the number in brackets 
 
 active_sequences = {}
 message_ids = {}
