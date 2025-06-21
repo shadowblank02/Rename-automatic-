@@ -100,7 +100,7 @@ async def auto_rename_file(client, message, file_info):
 
     await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
 
-# --------- METADATA SECTION WITH FIX --------------
+    # --------- METADATA SECTION WITH FIX --------------
     ffmpeg_cmd = shutil.which('ffmpeg')
     metadata_command = [
         ffmpeg_cmd,
@@ -203,7 +203,7 @@ async def auto_rename_file(client, message, file_info):
         if ph_path and os.path.exists(ph_path):
             os.remove(ph_path)
 
-# Clean up
+        # Clean up
         if os.path.exists(renamed_file_path):
             os.remove(renamed_file_path)
         if os.path.exists(metadata_file_path):
@@ -299,8 +299,7 @@ def extract_quality(filename):
     return "Unknown"
 
 def extract_episode_number(filename):
-
-match = re.search(pattern1, filename)
+    match = re.search(pattern1, filename)
     if match:
         return match.group(2)
     match = re.search(pattern2, filename)
