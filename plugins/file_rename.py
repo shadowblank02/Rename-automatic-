@@ -59,8 +59,9 @@ async def end_sequence(client, message: Message):
 
     await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ ɴᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {len(sorted_files)} Fɪʟᴇs ʙᴀᴄᴋ...Sᴏ ᴡᴀɪᴛ...!!")
 
+    # Sequential processing: rename and upload one by one
     for file in sorted_files:
-        await client.send_document(message.chat.id, file["file_id"], caption=f"{file.get('file_name', '')}")
+        await auto_rename_file(client, message, file)
 
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
@@ -332,17 +333,11 @@ async def auto_rename_files(client, message):
     )
     file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
 
-    # Immediately start renaming this file in the background
-    asyncio.create_task(auto_rename_file(client, message, file_info))
-
-    # Each file gets its own downloading message instantly
-    await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
-
-    # Add file to sequence if applicable, but do NOT send any "waiting" or "batch" messages
+    # If a sequence is active, just store the file info; don't start renaming yet
     if user_id in active_sequences:
-        file_info_seq = {
-            "file_id": file_id,
-            "file_name": file_name if file_name else "Unknown"
-        }
-        active_sequences[user_id].append(file_info_seq)
-        # No notification about waiting for more files or batch auto-rename!
+        active_sequences[user_id].append(file_info)
+        return  # Do not rename or send downloading message now
+
+    # If not in sequence, immediately start renaming this file in the background
+    asyncio.create_task(auto_rename_file(client, message, file_info))
+    # Do NOT send downloading message here! Only auto_rename_file does it.
