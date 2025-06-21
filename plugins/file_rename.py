@@ -338,11 +338,11 @@ async def auto_rename_files(client, message):
     # Each file gets its own downloading message instantly
     await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
-    # Keep the /sequence feature if needed
+    # Add file to sequence if applicable, but do NOT send any "waiting" or "batch" messages
     if user_id in active_sequences:
         file_info_seq = {
             "file_id": file_id,
             "file_name": file_name if file_name else "Unknown"
         }
         active_sequences[user_id].append(file_info_seq)
-        await message.reply_text(f"Wᴇᴡ...Fɪʟᴇ ʀᴇᴄᴇɪᴠᴇᴅ ɪɴ sᴇǫᴜᴇɴᴄᴇ...Nᴏᴡ ᴜsᴇ /end_sequence....Dᴜᴅᴇ...!!")
+        # No notification about waiting for more files or batch auto-rename!
