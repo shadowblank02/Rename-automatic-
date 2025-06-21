@@ -4,6 +4,7 @@ import time
 import shutil
 import asyncio
 from datetime import datetime
+from asyncio import Semaphore
 from PIL import Image
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
@@ -15,7 +16,8 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-renaming_operations = {}
+semaphore = asyncio.Semaphore(1)  # Allow up to 5 concurrent tasks
+
 active_sequences = {}
 message_ids = {}
 
@@ -121,6 +123,8 @@ match = re.search(pattern1, filename)
     return None
 
 async def auto_rename_file(client, message, file_info):
+    async with semaphore:
+        try:
     user_id = message.from_user.id
     file_id = file_info["file_id"]
     file_name = file_info["file_name"]
