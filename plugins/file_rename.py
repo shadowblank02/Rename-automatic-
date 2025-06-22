@@ -13,7 +13,7 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-semaphore = asyncio.Semaphore(2)  # Do not change the number in brackets 
+semaphore = asyncio.Semaphore(2)  # Controls max concurrent renames (for non-sequence only)
 
 active_sequences = {}
 message_ids = {}
@@ -32,8 +32,31 @@ async def start_sequence(client, message: Message):
     else:
         active_sequences[user_id] = []
         message_ids[user_id] = []
-        msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs Nᴏᴡ ʙʀᴏ....Fᴀsᴛ")
+        msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs ɴᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.message_id)
+
+@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
+async def auto_rename_files(client, message):
+    user_id = message.from_user.id
+    file_id = (
+        message.document.file_id if message.document else
+        message.video.file_id if message.video else
+        message.audio.file_id
+    )
+    file_name = (
+        message.document.file_name if message.document else
+        message.video.file_name if message.video else
+        message.audio.file_name
+    )
+    file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
+
+    if user_id in active_sequences:
+        active_sequences[user_id].append(file_info)
+        await message.reply_text("File received! Now use /end_sequence when you're done sending files.")
+        return
+
+    # Not in sequence: immediately rename/upload using concurrency
+    asyncio.create_task(auto_rename_file(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
 async def end_sequence(client, message: Message):
@@ -44,32 +67,12 @@ async def end_sequence(client, message: Message):
 
     file_list = active_sequences.pop(user_id, [])
     delete_messages = message_ids.pop(user_id, [])
+    count = len(file_list)
 
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
-        return
-
-    sorted_files = sorted(file_list, key=lambda f: (
-        detect_quality(f["file_name"]) if "file_name" in f else 4,
-        f["file_name"] if "file_name" in f else ""
-    ))
-
-    await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ ɴᴏᴡ ʀᴇɴᴀᴍɪɴɢ ʏᴏᴜʀ {len(sorted_files)} ғɪʟᴇs...Sᴏ ᴡᴀɪᴛ...!!")
-
-    # Sequential processing: rename and upload one by one
-    for file in sorted_files:
-        # For each file, create a dummy message object with media info filled in
-        # This is needed so auto_rename_file will get a message with media
-        # You must retrieve the actual message if you want to download the file!
-        # So, we should have saved the real message somewhere.
-        # But currently only file_id and file_name are stored, so we can't download.
-        # THE FIX: Instead of passing the last command message, fetch the message via file_id
-
-        # Try to send the document/file back by file_id
-        try:
-            await client.send_document(message.chat.id, file["file_id"], caption=f"{file.get('file_name', '')}")
-        except Exception as e:
-            await message.reply_text(f"Failed to send file: {e}")
+    else:
+        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Yᴏᴜ ʜᴀᴅ {count} ғɪʟᴇ(s) ɪɴ ᴛʜɪs ʙᴀᴛᴄʜ.")
 
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
@@ -323,24 +326,3 @@ async def auto_rename_file(client, message, file_info):
             if 'file_id' in locals() and file_id in renaming_operations:
                 del renaming_operations[file_id]
             raise
-
-@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
-async def auto_rename_files(client, message):
-    user_id = message.from_user.id
-    file_id = (
-        message.document.file_id if message.document else
-        message.video.file_id if message.video else
-        message.audio.file_id
-    )
-    file_name = (
-        message.document.file_name if message.document else
-        message.video.file_name if message.video else
-        message.audio.file_name
-    )
-    file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
-
-    if user_id in active_sequences:
-        active_sequences[user_id].append(file_info)
-        return
-
-    asyncio.create_task(auto_rename_file(client, message, file_info))
