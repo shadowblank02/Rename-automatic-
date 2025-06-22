@@ -13,7 +13,7 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-semaphore = asyncio.Semaphore(1)  # Do not change the number in brackets 
+semaphore = asyncio.Semaphore(2)  # Do not change the number in brackets 
 
 active_sequences = {}
 message_ids = {}
