@@ -13,7 +13,7 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-semaphore = asyncio.Semaphore(4)  # Controls max concurrent renames (for non-sequence only)
+semaphore = asyncio.Semaphore(3)  # Controls max concurrent renames (for non-sequence only)
 
 active_sequences = {}
 message_ids = {}
@@ -52,7 +52,7 @@ async def auto_rename_files(client, message):
 
     if user_id in active_sequences:
         active_sequences[user_id].append(file_info)
-        await message.reply_text("File received! Now use /end_sequence when you're done sending files.")
+        await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /ᴇɴᴅ_sᴇǫᴜᴇɴᴄᴇ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
         return
 
     # Not in sequence: immediately rename/upload using concurrency
@@ -72,7 +72,7 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Yᴏᴜ ʜᴀᴅ {count} ғɪʟᴇ(s) ɪɴ ᴛʜɪs ʙᴀᴛᴄʜ. Sᴇɴᴅɪɴɢ ʙᴀᴄᴋ ғɪʟᴇs...")
+        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ.Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) Bᴀᴄᴋ ɪɴ ᴀ sᴇǫᴜᴇɴᴄᴇ...!!")
         # Send all files back in the order they were received
         for file in file_list:
             try:
