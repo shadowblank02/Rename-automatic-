@@ -72,7 +72,17 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Yᴏᴜ ʜᴀᴅ {count} ғɪʟᴇ(s) ɪɴ ᴛʜɪs ʙᴀᴛᴄʜ.")
+        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Yᴏᴜ ʜᴀᴅ {count} ғɪʟᴇ(s) ɪɴ ᴛʜɪs ʙᴀᴛᴄʜ. Sᴇɴᴅɪɴɢ ʙᴀᴄᴋ ғɪʟᴇs...")
+        # Send all files back in the order they were received
+        for file in file_list:
+            try:
+                await client.send_document(
+                    message.chat.id,
+                    file["file_id"],
+                    caption=file.get("file_name", "")
+                )
+            except Exception as e:
+                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file.get('file_name', '')}\n{e}")
 
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
