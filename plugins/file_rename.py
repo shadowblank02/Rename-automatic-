@@ -52,7 +52,7 @@ async def auto_rename_files(client, message):
 
     if user_id in active_sequences:
         active_sequences[user_id].append(file_info)
-        await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /ᴇɴᴅ_sᴇǫᴜᴇɴᴄᴇ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
+        await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
         return
 
     # Not in sequence: immediately rename/upload using concurrency
