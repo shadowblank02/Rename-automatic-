@@ -4,6 +4,7 @@ import time
 import shutil
 import asyncio
 from datetime import datetime
+from asyncio import Semaphore
 from PIL import Image
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -12,25 +13,31 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
+semaphore = asyncio.Semaphore(1)  # Controls max concurrent renames (for non-sequence only)
+
 active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Task queue for real concurrent auto renaming ---
+# --- Task queue for concurrent auto renaming ---
 class TaskQueue:
     def __init__(self, concurrency=3):
         self.semaphore = asyncio.Semaphore(concurrency)
+        self.queue = asyncio.Queue()
+        self.process_task = asyncio.create_task(self._process())
 
     async def add(self, coro):
-        # Launch each task as a background task, limited by the semaphore
-        asyncio.create_task(self.worker(coro))
+        await self.queue.put(coro)
 
-    async def worker(self, coro):
-        async with self.semaphore:
-            try:
-                await coro
-            except Exception as e:
-                print(f"Task error: {e}")
+    async def _process(self):
+        while True:
+            coro = await self.queue.get()
+            async with self.semaphore:
+                try:
+                    await coro
+                except Exception as e:
+                    print(f"Task error: {e}")
+            self.queue.task_done()
 
 task_queue = TaskQueue(concurrency=3)  # adjust as needed
 
@@ -159,14 +166,6 @@ def extract_episode_number(filename):
         return match.group(1)
     return None
 
-async def process_thumb(ph_path):
-    # Offload PIL image work to a thread for real concurrency
-    def _resize_thumb(path):
-        img = Image.open(path).convert("RGB")
-        img = img.resize((320, 320))
-        img.save(path, "JPEG")
-    await asyncio.to_thread(_resize_thumb, ph_path)
-
 async def auto_rename_file(client, message, file_info):
     try:
         user_id = message.from_user.id
@@ -293,7 +292,9 @@ async def auto_rename_file(client, message, file_info):
                 ph_path = await client.download_media(message.video.thumbs[0].file_id)
 
             if ph_path:
-                await process_thumb(ph_path)
+                img = Image.open(ph_path).convert("RGB")
+                img = img.resize((320, 320))
+                img.save(ph_path, "JPEG")
 
             try:
                 if media_type == "document":
