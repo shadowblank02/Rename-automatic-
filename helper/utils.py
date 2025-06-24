@@ -1,12 +1,9 @@
 import math, time
-import asyncio  # <-- Add this line
 from datetime import datetime
 from pytz import timezone
 from config import Config, Txt 
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# Add a global semaphore for concurrency control (e.g., 2 concurrent renames)
-semaphore = asyncio.Semaphore(1)
 
 async def progress_for_pyrogram(current, total, ud_type, message, start):
     now = time.time()
@@ -55,7 +52,7 @@ def humanbytes(size):
 def TimeFormatter(milliseconds: int) -> str:
     seconds, milliseconds = divmod(int(milliseconds), 1000)
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(hours, 60)
+    hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     tmp = ((str(days) + "ᴅ, ") if days else "") + \
         ((str(hours) + "ʜ, ") if hours else "") + \
@@ -79,5 +76,5 @@ async def send_log(b, u):
         time = curr.strftime('%I:%M:%S %p')
         await b.send_message(
             Config.LOG_CHANNEL,
-            f"--Nᴇᴡ Uꜱᴇʀ Sᴛᴀʀᴛᴇᴅ Tʜᴇ Bᴏᴛ--\n\nUꜱᴇʀ: {u.mention}\nIᴅ: {u.id}\nUɴ: @{u.username}\n\nDᴀᴛᴇ: {date}\nTɪᴍᴇ: {time}\n\nBy: {b.mention}"
+            f"**--Nᴇᴡ Uꜱᴇʀ Sᴛᴀʀᴛᴇᴅ Tʜᴇ Bᴏᴛ--**\n\nUꜱᴇʀ: {u.mention}\nIᴅ: `{u.id}`\nUɴ: @{u.username}\n\nDᴀᴛᴇ: {date}\nTɪᴍᴇ: {time}\n\nBy: {b.mention}"
         )
