@@ -13,7 +13,7 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
-semaphore = asyncio.Semaphore(1)  # Controls max concurrent renames (for non-sequence only)
+semaphore = asyncio.Semaphore(3)  # Controls max concurrent renames (for non-sequence only)
 
 active_sequences = {}
 message_ids = {}
