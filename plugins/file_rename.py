@@ -102,7 +102,7 @@ async def auto_rename_file(client, message, file_info):
             file_id = file_info["file_id"]
             file_name = file_info["file_name"]
 
-format_template = await codeflixbots.get_format_template(user_id)
+            format_template = await codeflixbots.get_format_template(user_id)
             media_preference = await codeflixbots.get_media_preference(user_id)
 
             if not format_template:
@@ -186,7 +186,7 @@ format_template = await codeflixbots.get_format_template(user_id)
                 metadata_file_path
             ]
 
-try:
+            try:
                 process = await asyncio.create_subprocess_exec(
                     *metadata_command,
                     stdout=asyncio.subprocess.PIPE,
@@ -277,7 +277,7 @@ try:
                 if file_id in renaming_operations:
                     del renaming_operations[file_id]
 
-except Exception as e:
+            except Exception as e:
                 del renaming_operations[file_id]
                 return await download_msg.edit(f"Metadata/Processing Error: {e}")
 
