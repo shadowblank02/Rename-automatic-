@@ -365,8 +365,6 @@ caption = (
             if ph_path and os.path.exists(ph_path):
                 os.remove(ph_path)
 
-                os.remove(ph_path)
-
             if os.path.exists(renamed_file_path):
                 os.remove(renamed_file_path)
             if os.path.exists(metadata_file_path):
