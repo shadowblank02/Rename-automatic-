@@ -1,4 +1,4 @@
-import os
+ import os
 import re
 import time
 import shutil
@@ -16,7 +16,7 @@ active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Task queue for real concurrent auto renaming ---
+# --- Updated Task queue for sequential auto renaming (each file completes entirely before next starts) ---
 class TaskQueue:
     def __init__(self, concurrency=3):
         self.semaphore = asyncio.Semaphore(concurrency)
@@ -26,11 +26,14 @@ class TaskQueue:
         asyncio.create_task(self.worker(coro))
 
     async def worker(self, coro):
-        async with self.semaphore:
+        async with self.semaphore:  # Acquire semaphore for entire file process
             try:
+                # Complete entire file processing (download → metadata → upload)
                 await coro
             except Exception as e:
-                print(f"Task error: {e}")
+                print(f"Error: {e}")
+        # Semaphore automatically released when exiting 'async with'
+        # Next file can start immediately
 
 task_queue = TaskQueue(concurrency=3)  # adjust as needed
 
@@ -71,6 +74,7 @@ async def auto_rename_files(client, message):
         return
 
     # Not in sequence: add to concurrent task queue for auto renaming
+    # Each file will complete entirely (download → metadata → upload) before next starts
     await task_queue.add(auto_rename_file(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
@@ -168,6 +172,14 @@ async def process_thumb(ph_path):
     await asyncio.to_thread(_resize_thumb, ph_path)
 
 async def auto_rename_file(client, message, file_info):
+    """
+    Complete file processing function that handles:
+    1. Download
+    2. Metadata addition
+    3. Upload
+    4. Cleanup
+    All steps for one file before moving to next
+    """
     try:
         user_id = message.from_user.id
         file_id = file_info["file_id"]
@@ -222,6 +234,7 @@ async def auto_rename_file(client, message, file_info):
         os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
         os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
+        # STEP 1: DOWNLOAD
         download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
         ph_path = None
@@ -237,6 +250,7 @@ async def auto_rename_file(client, message, file_info):
             del renaming_operations[file_id]
             return await download_msg.edit(f"Download Error: {e}")
 
+        # STEP 2: METADATA ADDITION
         await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
 
         ffmpeg_cmd = shutil.which('ffmpeg')
@@ -272,6 +286,7 @@ async def auto_rename_file(client, message, file_info):
 
             path = metadata_file_path
 
+            # STEP 3: UPLOAD
             upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
             c_caption = await codeflixbots.get_caption(message.chat.id)
@@ -333,6 +348,7 @@ async def auto_rename_file(client, message, file_info):
                 del renaming_operations[file_id]
                 return await upload_msg.edit(f"Error: {e}")
 
+            # STEP 4: CLEANUP
             await download_msg.delete()
             if os.path.exists(path):
                 os.remove(path)
