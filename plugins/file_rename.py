@@ -16,26 +16,36 @@ active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Updated Task queue for sequential auto renaming (each file completes entirely before next starts) ---
+# --- Task queue for TRUE SEQUENTIAL auto renaming (one file at a time, completely) ---
 class TaskQueue:
-    def __init__(self, concurrency=3):
-        self.semaphore = asyncio.Semaphore(concurrency)
+    def init(self, concurrency=3):
+        self.concurrency = concurrency  # Keep for future use
+        self.queue = asyncio.Queue()
+        self.processing = False
 
     async def add(self, coro):
-        # Launch each task as a background task, limited by the semaphore
-        asyncio.create_task(self.worker(coro))
+        # Add task to queue
+        await self.queue.put(coro)
+        # Start processing if not already running
+        if not self.processing:
+            asyncio.create_task(self.process_queue())
 
-    async def worker(self, coro):
-        async with self.semaphore:  # Acquire semaphore for entire file process
-            try:
-                # Complete entire file processing (download → metadata → upload)
-                await coro
-            except Exception as e:
-                print(f"Error: {e}")
-        # Semaphore automatically released when exiting 'async with'
-        # Next file can start immediately
+    async def process_queue(self):
+        self.processing = True
+        try:
+            while not self.queue.empty():
+                coro = await self.queue.get()
+                try:
+                    # Process ONE complete file at a time
+                    await coro
+                except Exception as e:
+                    print(f"Error: {e}")
+                finally:
+                    self.queue.task_done()
+        finally:
+            self.processing = False
 
-task_queue = TaskQueue(concurrency=3)  # adjust as needed
+task_queue = TaskQueue(concurrency=3)  # Will process files one by one sequentially
 
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
@@ -88,7 +98,7 @@ async def end_sequence(client, message: Message):
     delete_messages = message_ids.pop(user_id, [])
     count = len(file_list)
 
-    if not file_list:
+if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
         await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ.Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) Bᴀᴄᴋ ɪɴ ᴀ sᴇǫᴜᴇɴᴄᴇ...!!")
@@ -202,7 +212,7 @@ async def auto_rename_file(client, message, file_info):
         if await check_anti_nsfw(file_name, message):
             return await message.reply_text("NSFW content detected. File upload rejected.")
 
-        if file_id in renaming_operations:
+if file_id in renaming_operations:
             elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
             if elapsed_time < 10:
                 return
@@ -292,7 +302,7 @@ async def auto_rename_file(client, message, file_info):
             c_caption = await codeflixbots.get_caption(message.chat.id)
             c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
 
-            caption = (
+caption = (
                 c_caption.format(
                     filename=renamed_file_name,
                     filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
@@ -353,6 +363,8 @@ async def auto_rename_file(client, message, file_info):
             if os.path.exists(path):
                 os.remove(path)
             if ph_path and os.path.exists(ph_path):
+                os.remove(ph_path)
+
                 os.remove(ph_path)
 
             if os.path.exists(renamed_file_path):
