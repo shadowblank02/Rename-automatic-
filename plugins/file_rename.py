@@ -18,7 +18,7 @@ renaming_operations = {}
 
 # --- Task queue for TRUE SEQUENTIAL auto renaming (one file at a time, completely) ---
 class TaskQueue:
-    def init(self, concurrency=3):
+    def __init__(self, concurrency=3):
         self.concurrency = concurrency  # Keep for future use
         self.queue = asyncio.Queue()
         self.processing = False
@@ -98,7 +98,7 @@ async def end_sequence(client, message: Message):
     delete_messages = message_ids.pop(user_id, [])
     count = len(file_list)
 
-if not file_list:
+    if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
         await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ.Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) Bᴀᴄᴋ ɪɴ ᴀ sᴇǫᴜᴇɴᴄᴇ...!!")
@@ -212,7 +212,7 @@ async def auto_rename_file(client, message, file_info):
         if await check_anti_nsfw(file_name, message):
             return await message.reply_text("NSFW content detected. File upload rejected.")
 
-if file_id in renaming_operations:
+        if file_id in renaming_operations:
             elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
             if elapsed_time < 10:
                 return
@@ -302,7 +302,7 @@ if file_id in renaming_operations:
             c_caption = await codeflixbots.get_caption(message.chat.id)
             c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
 
-caption = (
+            caption = (
                 c_caption.format(
                     filename=renamed_file_name,
                     filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
