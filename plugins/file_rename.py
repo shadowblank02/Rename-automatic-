@@ -4,6 +4,7 @@ import time
 import shutil
 import asyncio
 from datetime import datetime
+from asyncio import Semaphore
 from PIL import Image
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -12,40 +13,33 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
+semaphore = asyncio.Semaphore(1)  # Controls max concurrent renames (for non-sequence only)
+
 active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Task queue for TRUE SEQUENTIAL auto renaming (one file at a time, completely) ---
+# --- Task queue for concurrent auto renaming ---
 class TaskQueue:
     def __init__(self, concurrency=3):
-        self.concurrency = concurrency  # Keep for future use
+        self.semaphore = asyncio.Semaphore(concurrency)
         self.queue = asyncio.Queue()
-        self.processing = False
+        self.process_task = asyncio.create_task(self._process())
 
     async def add(self, coro):
-        # Add task to queue
         await self.queue.put(coro)
-        # Start processing if not already running
-        if not self.processing:
-            asyncio.create_task(self.process_queue())
 
-    async def process_queue(self):
-        self.processing = True
-        try:
-            while not self.queue.empty():
-                coro = await self.queue.get()
+    async def _process(self):
+        while True:
+            coro = await self.queue.get()
+            async with self.semaphore:
                 try:
-                    # Process ONE complete file at a time
                     await coro
                 except Exception as e:
-                    print(f"Error: {e}")
-                finally:
-                    self.queue.task_done()
-        finally:
-            self.processing = False
+                    print(f"Task error: {e}")
+            self.queue.task_done()
 
-task_queue = TaskQueue(concurrency=3)  # Will process files one by one sequentially
+task_queue = TaskQueue(concurrency=3)  # adjust as needed
 
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
@@ -84,7 +78,6 @@ async def auto_rename_files(client, message):
         return
 
     # Not in sequence: add to concurrent task queue for auto renaming
-    # Each file will complete entirely (download → metadata → upload) before next starts
     await task_queue.add(auto_rename_file(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
@@ -173,23 +166,7 @@ def extract_episode_number(filename):
         return match.group(1)
     return None
 
-async def process_thumb(ph_path):
-    # Offload PIL image work to a thread for real concurrency
-    def _resize_thumb(path):
-        img = Image.open(path).convert("RGB")
-        img = img.resize((320, 320))
-        img.save(path, "JPEG")
-    await asyncio.to_thread(_resize_thumb, ph_path)
-
 async def auto_rename_file(client, message, file_info):
-    """
-    Complete file processing function that handles:
-    1. Download
-    2. Metadata addition
-    3. Upload
-    4. Cleanup
-    All steps for one file before moving to next
-    """
     try:
         user_id = message.from_user.id
         file_id = file_info["file_id"]
@@ -244,7 +221,6 @@ async def auto_rename_file(client, message, file_info):
         os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
         os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
-        # STEP 1: DOWNLOAD
         download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
         ph_path = None
@@ -260,7 +236,6 @@ async def auto_rename_file(client, message, file_info):
             del renaming_operations[file_id]
             return await download_msg.edit(f"Download Error: {e}")
 
-        # STEP 2: METADATA ADDITION
         await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
 
         ffmpeg_cmd = shutil.which('ffmpeg')
@@ -296,7 +271,6 @@ async def auto_rename_file(client, message, file_info):
 
             path = metadata_file_path
 
-            # STEP 3: UPLOAD
             upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
             c_caption = await codeflixbots.get_caption(message.chat.id)
@@ -318,7 +292,9 @@ async def auto_rename_file(client, message, file_info):
                 ph_path = await client.download_media(message.video.thumbs[0].file_id)
 
             if ph_path:
-                await process_thumb(ph_path)
+                img = Image.open(ph_path).convert("RGB")
+                img = img.resize((320, 320))
+                img.save(ph_path, "JPEG")
 
             try:
                 if media_type == "document":
@@ -358,7 +334,6 @@ async def auto_rename_file(client, message, file_info):
                 del renaming_operations[file_id]
                 return await upload_msg.edit(f"Error: {e}")
 
-            # STEP 4: CLEANUP
             await download_msg.delete()
             if os.path.exists(path):
                 os.remove(path)
