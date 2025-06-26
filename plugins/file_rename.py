@@ -3,6 +3,7 @@ import re
 import time
 import shutil
 import asyncio
+import logging # Added for logging
 from datetime import datetime
 from PIL import Image
 from pyrogram import Client, filters
@@ -12,6 +13,10 @@ from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 active_sequences = {}
 message_ids = {}
 renaming_operations = {}
@@ -20,6 +25,7 @@ renaming_operations = {}
 class TaskQueue:
     def __init__(self, concurrency=3):
         self.semaphore = asyncio.Semaphore(concurrency)
+        logger.info(f"TaskQueue initialized with concurrency: {concurrency}")
 
     async def add(self, coro):
         # Launch each task as a background task, limited by the semaphore
@@ -30,7 +36,7 @@ class TaskQueue:
             try:
                 await coro
             except Exception as e:
-                print(f"Task error: {e}")
+                logger.error(f"Task error: {e}", exc_info=True) # Log full traceback
 
 task_queue = TaskQueue(concurrency=3)  # adjust as needed
 
@@ -49,6 +55,7 @@ async def start_sequence(client, message: Message):
         message_ids[user_id] = []
         msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs ɴᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.message_id)
+    logger.info(f"User {user_id} started a sequence.")
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
@@ -64,25 +71,31 @@ async def auto_rename_files(client, message):
         message.audio.file_name
     )
     file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
+    
+    logger.info(f"Received file from user {user_id}: {file_name}")
 
     if user_id in active_sequences:
         active_sequences[user_id].append(file_info)
         await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
+        logger.info(f"File {file_name} added to sequence for user {user_id}.")
         return
 
     # Not in sequence: add to concurrent task queue for auto renaming
-    await task_queue.add(auto_rename_file(client, message, file_info))
+    logger.info(f"File {file_name} for user {user_id} added to concurrent task queue.")
+    await task_queue.add(auto_rename_file_single(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
 async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
         await message.reply_text("Wʜᴀᴛ ᴀʀᴇ ʏᴏᴜ ᴅᴏɪɴɢ ɴᴏ ᴀᴄᴛɪᴠᴇ sᴇǫᴜᴇɴᴄᴇ ғᴏᴜɴᴅ...!!")
+        logger.warning(f"User {user_id} tried to end non-existent sequence.")
         return
 
     file_list = active_sequences.pop(user_id, [])
     delete_messages = message_ids.pop(user_id, [])
     count = len(file_list)
+    logger.info(f"User {user_id} ending sequence with {count} files.")
 
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
@@ -96,13 +109,17 @@ async def end_sequence(client, message: Message):
                     file["file_id"],
                     caption=file.get("file_name", "")
                 )
+                logger.info(f"Sent file {file.get('file_name', '')} back to user {user_id}.")
             except Exception as e:
+                logger.error(f"Failed to send file {file.get('file_name', '')} to user {user_id}: {e}", exc_info=True)
                 await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file.get('file_name', '')}\n{e}")
 
     try:
-        await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
+        if delete_messages:
+            await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
+            logger.info(f"Deleted {len(delete_messages)} sequence messages for user {user_id}.")
     except Exception as e:
-        print(f"Error deleting messages: {e}")
+        logger.error(f"Error deleting messages for user {user_id}: {e}", exc_info=True)
 
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
@@ -162,21 +179,29 @@ def extract_episode_number(filename):
 async def process_thumb(ph_path):
     # Offload PIL image work to a thread for real concurrency
     def _resize_thumb(path):
-        img = Image.open(path).convert("RGB")
-        img = img.resize((320, 320))
-        img.save(path, "JPEG")
+        try:
+            img = Image.open(path).convert("RGB")
+            img = img.resize((320, 320))
+            img.save(path, "JPEG")
+            logger.info(f"Thumbnail resized: {path}")
+        except Exception as e:
+            logger.error(f"Error resizing thumbnail {path}: {e}", exc_info=True)
     await asyncio.to_thread(_resize_thumb, ph_path)
 
-async def auto_rename_file(client, message, file_info):
-    try:
-        user_id = message.from_user.id
-        file_id = file_info["file_id"]
-        file_name = file_info["file_name"]
+async def auto_rename_file_single(client, message, file_info):
+    user_id = message.from_user.id
+    file_id = file_info["file_id"]
+    file_name = file_info["file_name"]
+    downloaded_file_path = None
+    metadata_output_path = None
+    ph_path = None # Thumbnail path
 
+    try:
         format_template = await codeflixbots.get_format_template(user_id)
         media_preference = await codeflixbots.get_media_preference(user_id)
 
         if not format_template:
+            logger.warning(f"User {user_id} has no rename format set.")
             return await message.reply_text(
                 "Please Set An Auto Rename Format First Using /autorename"
             )
@@ -188,58 +213,73 @@ async def auto_rename_file(client, message, file_info):
             media_type = "audio"
 
         if await check_anti_nsfw(file_name, message):
+            logger.warning(f"NSFW content detected for file {file_name} from user {user_id}.")
             return await message.reply_text("NSFW content detected. File upload rejected.")
 
         if file_id in renaming_operations:
             elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
-            if elapsed_time < 10:
+            if elapsed_time < 10: # Prevent reprocessing too quickly
+                logger.info(f"File {file_name} for user {user_id} is already being processed or was recently processed. Skipping.")
                 return
 
         renaming_operations[file_id] = datetime.now()
+        logger.info(f"Starting auto-rename for file {file_name} from user {user_id}.")
 
         episode_number = extract_episode_number(file_name)
-        print(f"Extracted Episode Number: {episode_number}")
+        logger.info(f"Extracted Episode Number: {episode_number} for {file_name}")
 
         template = format_template
         if episode_number:
             placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
             for placeholder in placeholders:
                 template = template.replace(placeholder, str(episode_number), 1)
-            quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
-            for quality_placeholder in quality_placeholders:
-                if quality_placeholder in template:
-                    extracted_qualities = extract_quality(file_name)
-                    if extracted_qualities == "Unknown":
-                        await message.reply_text("I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...")
-                        del renaming_operations[file_id]
-                        return
-                    template = template.replace(quality_placeholder, "".join(extracted_qualities))
+        
+        quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
+        for quality_placeholder in quality_placeholders:
+            if quality_placeholder in template:
+                extracted_qualities = extract_quality(file_name)
+                if extracted_qualities == "Unknown":
+                    logger.warning(f"Could not extract quality for {file_name}. Renaming as 'Unknown'.")
+                    await message.reply_text("I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...")
+                    del renaming_operations[file_id]
+                    return
+                template = template.replace(quality_placeholder, "".join(extracted_qualities))
 
         _, file_extension = os.path.splitext(file_name)
         renamed_file_name = f"{template}{file_extension}"
-        renamed_file_path = f"downloads/{renamed_file_name}"
-        metadata_file_path = f"Metadata/{renamed_file_name}"
-        os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
-        os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
+        downloaded_file_path = f"downloads/{renamed_file_name}"
+        metadata_output_path = f"Metadata/{renamed_file_name}" # This will be the final path if metadata is added
+        
+        os.makedirs(os.path.dirname(downloaded_file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(metadata_output_path), exist_ok=True)
 
         download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
-
-        ph_path = None
+        logger.info(f"Downloading {file_name} to {downloaded_file_path}")
 
         try:
             path = await client.download_media(
                 message,
-                file_name=renamed_file_path,
+                file_name=downloaded_file_path,
                 progress=progress_for_pyrogram,
                 progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ....!!", download_msg, time.time()),
             )
+            logger.info(f"Successfully downloaded {file_name} to {path}")
         except Exception as e:
+            logger.error(f"Download Error for {file_name}: {e}", exc_info=True)
             del renaming_operations[file_id]
             return await download_msg.edit(f"Download Error: {e}")
 
+        # --- Metadata Injection ---
         await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
+        logger.info(f"Adding metadata to {path}")
 
         ffmpeg_cmd = shutil.which('ffmpeg')
+        if not ffmpeg_cmd:
+            logger.error("ffmpeg not found in system PATH.")
+            await download_msg.edit("FFmpeg is not installed or not in PATH. Cannot add metadata.")
+            del renaming_operations[file_id]
+            return
+
         metadata_command = [
             ffmpeg_cmd,
             '-i', path,
@@ -254,7 +294,8 @@ async def auto_rename_file(client, message, file_info):
             '-map', '0',
             '-c', 'copy',
             '-loglevel', 'error',
-            metadata_file_path
+            '-y', # Overwrite output files without asking
+            metadata_output_path
         ]
 
         try:
@@ -266,93 +307,114 @@ async def auto_rename_file(client, message, file_info):
             stdout, stderr = await process.communicate()
             if process.returncode != 0:
                 error_message = stderr.decode()
-                await download_msg.edit(f"Metadata Error:\n{error_message}")
-                del renaming_operations[file_id]
-                return
-
-            path = metadata_file_path
-
-            upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
-
-            c_caption = await codeflixbots.get_caption(message.chat.id)
-            c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
-
-            caption = (
-                c_caption.format(
-                    filename=renamed_file_name,
-                    filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
-                    duration=convert(0),
-                )
-                if c_caption
-                else f"{renamed_file_name}"
-            )
-
-            if c_thumb:
-                ph_path = await client.download_media(c_thumb)
-            elif media_type == "video" and getattr(message.video, "thumbs", None):
-                ph_path = await client.download_media(message.video.thumbs[0].file_id)
-
-            if ph_path:
-                await process_thumb(ph_path)
-
-            try:
-                if media_type == "document":
-                    await client.send_document(
-                        message.chat.id,
-                        document=path,
-                        thumb=ph_path,
-                        caption=caption,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
-                elif media_type == "video":
-                    await client.send_video(
-                        message.chat.id,
-                        video=path,
-                        caption=caption,
-                        thumb=ph_path,
-                        duration=0,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
-                elif media_type == "audio":
-                    await client.send_audio(
-                        message.chat.id,
-                        audio=path,
-                        caption=caption,
-                        thumb=ph_path,
-                        duration=0,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
-            except Exception as e:
-                if os.path.exists(renamed_file_path):
-                    os.remove(renamed_file_path)
-                if ph_path and os.path.exists(ph_path):
-                    os.remove(ph_path)
-                del renaming_operations[file_id]
-                return await upload_msg.edit(f"Error: {e}")
-
-            await download_msg.delete()
-            if os.path.exists(path):
-                os.remove(path)
-            if ph_path and os.path.exists(ph_path):
-                os.remove(ph_path)
-
-            if os.path.exists(renamed_file_path):
-                os.remove(renamed_file_path)
-            if os.path.exists(metadata_file_path):
-                os.remove(metadata_file_path)
-            if ph_path and os.path.exists(ph_path):
-                os.remove(ph_path)
-            if file_id in renaming_operations:
-                del renaming_operations[file_id]
-
+                logger.error(f"FFmpeg Metadata Error for {file_name}: {error_message}")
+                await download_msg.edit(f"Metadata Error:\n{error_message}\nProceeding with original file.")
+                # If metadata failed, upload the original downloaded file
+                final_upload_path = path
+            else:
+                logger.info(f"Successfully added metadata to {file_name}.")
+                final_upload_path = metadata_output_path
+            
         except Exception as e:
-            del renaming_operations[file_id]
-            return await download_msg.edit(f"Metadata/Processing Error: {e}")
+            logger.error(f"Error during metadata processing for {file_name}: {e}", exc_info=True)
+            await download_msg.edit(f"Metadata Processing Error: {e}\nProceeding with original file.")
+            final_upload_path = path # Fallback to original downloaded file if metadata failed
 
+        # --- Uploading ---
+        upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
+        logger.info(f"Starting upload for {renamed_file_name}")
+
+        c_caption = await codeflixbots.get_caption(message.chat.id)
+        c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
+
+        caption = (
+            c_caption.format(
+                filename=renamed_file_name,
+                filesize=humanbytes(message.document.file_size if message.document else message.video.file_size if message.video else message.audio.file_size), # Use correct file_size
+                duration=convert(message.video.duration if message.video else message.audio.duration if message.audio else 0), # Use actual duration
+            )
+            if c_caption
+            else f"{renamed_file_name}"
+        )
+
+        if c_thumb:
+            try:
+                ph_path = await client.download_media(c_thumb)
+                logger.info(f"Downloaded custom thumbnail {c_thumb} to {ph_path}")
+            except Exception as e:
+                logger.warning(f"Could not download custom thumbnail {c_thumb}: {e}")
+                ph_path = None
+        elif media_type == "video" and getattr(message.video, "thumbs", None):
+            try:
+                ph_path = await client.download_media(message.video.thumbs[0].file_id)
+                logger.info(f"Downloaded video thumbnail to {ph_path}")
+            except Exception as e:
+                logger.warning(f"Could not download video thumbnail: {e}")
+                ph_path = None
+        
+        if ph_path:
+            await process_thumb(ph_path)
+
+        try:
+            if media_type == "document":
+                await client.send_document(
+                    message.chat.id,
+                    document=final_upload_path,
+                    thumb=ph_path,
+                    caption=caption,
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+                )
+            elif media_type == "video":
+                await client.send_video(
+                    message.chat.id,
+                    video=final_upload_path,
+                    caption=caption,
+                    thumb=ph_path,
+                    duration=message.video.duration if message.video else 0, # Used actual duration
+                    width=message.video.width if message.video else 0,
+                    height=message.video.height if message.video else 0,
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+                )
+            elif media_type == "audio":
+                await client.send_audio(
+                    message.chat.id,
+                    audio=final_upload_path,
+                    caption=caption,
+                    thumb=ph_path,
+                    duration=message.audio.duration if message.audio else 0, # Used actual duration
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
+                )
+            logger.info(f"Successfully uploaded {renamed_file_name} to user {user_id}.")
+        except Exception as e:
+            logger.error(f"Upload Error for {renamed_file_name}: {e}", exc_info=True)
+            return await upload_msg.edit(f"Upload Error: {e}")
+
+        await download_msg.delete() # Delete the "downloading" message
+        await upload_msg.delete() # Delete the "uploading" message
+        
     except Exception as e:
-        if 'file_id' in locals() and file_id in renaming_operations:
+        logger.critical(f"An unhandled error occurred in auto_rename_file_single for user {user_id}, file {file_name}: {e}", exc_info=True)
+        # Attempt to inform the user about the critical error
+        try:
+            await message.reply_text(f"An unexpected error occurred during processing: {e}")
+        except Exception as reply_e:
+            logger.error(f"Failed to send error message to user {user_id}: {reply_e}")
+    finally:
+        # Cleanup downloaded and processed files
+        if downloaded_file_path and os.path.exists(downloaded_file_path):
+            os.remove(downloaded_file_path)
+            logger.debug(f"Cleaned up downloaded file: {downloaded_file_path}")
+        if metadata_output_path and os.path.exists(metadata_output_path):
+            os.remove(metadata_output_path)
+            logger.debug(f"Cleaned up metadata output file: {metadata_output_path}")
+        if ph_path and os.path.exists(ph_path):
+            os.remove(ph_path)
+            logger.debug(f"Cleaned up thumbnail file: {ph_path}")
+        
+        # Ensure renaming_operations entry is removed
+        if file_id in renaming_operations:
             del renaming_operations[file_id]
-        raise
+            logger.debug(f"Removed {file_id} from renaming_operations.")
