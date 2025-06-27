@@ -3,7 +3,7 @@ import re
 import time
 import shutil
 import asyncio
-import logging # Added for logging
+import logging
 from datetime import datetime
 from PIL import Image
 from pyrogram import Client, filters
@@ -17,11 +17,12 @@ from config import Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# active_sequences will now store the actual message objects for sequential processing
 active_sequences = {}
-message_ids = {}
-renaming_operations = {}
+message_ids = {} # For deleting bot's messages
+renaming_operations = {} # Still useful for preventing duplicate processing
 
-# --- Task queue for real concurrent auto renaming ---
+# --- Task queue for real concurrent auto renaming (for non-sequence files) ---
 class TaskQueue:
     def __init__(self, concurrency=3):
         self.semaphore = asyncio.Semaphore(concurrency)
@@ -51,7 +52,7 @@ async def start_sequence(client, message: Message):
     if user_id in active_sequences:
         await message.reply_text("Hᴇʏ ᴅᴜᴅᴇ...!! A sᴇǫᴜᴇɴᴄᴇ ɪs ᴀʟʀᴇᴀᴅʏ ᴀᴄᴛɪᴠᴇ! Usᴇ /end_sequence ᴛᴏ ᴇɴᴅ ɪᴛ.")
     else:
-        active_sequences[user_id] = []
+        active_sequences[user_id] = [] # Store original message objects here
         message_ids[user_id] = []
         msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs ɴᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.message_id)
@@ -60,6 +61,18 @@ async def start_sequence(client, message: Message):
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
+
+    logger.info(f"Received file from user {user_id}: {message.file.file_name if message.file else 'Unknown'}")
+
+    if user_id in active_sequences:
+        # If in sequence, just store the message object for later processing
+        active_sequences[user_id].append(message)
+        await message.reply_text("Wᴇᴡ...ғɪʟᴇ ʀᴇᴄᴇɪᴠᴇᴅ! Sᴇɴᴅ ᴍᴏʀᴇ ᴏʀ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
+        logger.info(f"File {message.file.file_name if message.file else 'Unknown'} added to sequence for user {user_id}.")
+        return
+
+    # Not in sequence: process immediately via concurrent task queue
+    # Extract file_info needed for auto_rename_file_single
     file_id = (
         message.document.file_id if message.document else
         message.video.file_id if message.video else
@@ -71,17 +84,8 @@ async def auto_rename_files(client, message):
         message.audio.file_name
     )
     file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
-    
-    logger.info(f"Received file from user {user_id}: {file_name}")
 
-    if user_id in active_sequences:
-        active_sequences[user_id].append(file_info)
-        await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
-        logger.info(f"File {file_name} added to sequence for user {user_id}.")
-        return
-
-    # Not in sequence: add to concurrent task queue for auto renaming
-    logger.info(f"File {file_name} for user {user_id} added to concurrent task queue.")
+    logger.info(f"File {file_name} for user {user_id} added to concurrent task queue for single processing.")
     await task_queue.add(auto_rename_file_single(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
@@ -92,27 +96,40 @@ async def end_sequence(client, message: Message):
         logger.warning(f"User {user_id} tried to end non-existent sequence.")
         return
 
-    file_list = active_sequences.pop(user_id, [])
+    file_messages = active_sequences.pop(user_id, []) # Get the list of original messages
     delete_messages = message_ids.pop(user_id, [])
-    count = len(file_list)
-    logger.info(f"User {user_id} ending sequence with {count} files.")
+    count = len(file_messages)
+    logger.info(f"User {user_id} ending sequence with {count} files. Starting sequential processing.")
 
-    if not file_list:
+    if not file_messages:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ.Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) Bᴀᴄᴋ ɪɴ ᴀ sᴇǫᴜᴇɴᴄᴇ...!!")
-        # Send all files back in the order they were received
-        for file in file_list:
+        status_msg = await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Sᴛᴀʀᴛɪɴɢ ᴘʀᴏᴄᴇssɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
+        
+        for i, msg_to_process in enumerate(file_messages):
+            file_name = (
+                msg_to_process.document.file_name if msg_to_process.document else
+                msg_to_process.video.file_name if msg_to_process.video else
+                msg_to_process.audio.file_name
+            )
+            file_id = (
+                msg_to_process.document.file_id if msg_to_process.document else
+                msg_to_process.video.file_id if msg_to_process.video else
+                msg_to_process.audio.file_id
+            )
+            file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
+
+            await status_msg.edit_text(f"Pʀᴏᴄᴇssɪɴɢ ғɪʟᴇ {i+1}/{count}: {file_name}")
+            logger.info(f"Processing sequence file {i+1}/{count} for user {user_id}: {file_name}")
+            
             try:
-                await client.send_document(
-                    message.chat.id,
-                    file["file_id"],
-                    caption=file.get("file_name", "")
-                )
-                logger.info(f"Sent file {file.get('file_name', '')} back to user {user_id}.")
+                # Call the same single file processing logic, but sequentially
+                await auto_rename_file_single(client, msg_to_process, file_info)
             except Exception as e:
-                logger.error(f"Failed to send file {file.get('file_name', '')} to user {user_id}: {e}", exc_info=True)
-                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file.get('file_name', '')}\n{e}")
+                logger.error(f"Failed to process sequence file {file_name} for user {user_id}: {e}", exc_info=True)
+                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ ᴘʀᴏᴄᴇss ғɪʟᴇ ɪɴ sᴇǫᴜᴇɴᴄᴇ: {file_name}\n{e}")
+        
+        await status_msg.edit_text(f"Aʟʟ {count} ғɪʟᴇ(s) ᴘʀᴏᴄᴇssᴇᴅ ғᴏʀ ʏᴏᴜʀ sᴇǫᴜᴇɴᴄᴇ. ᴅᴏɴᴇ...!!")
 
     try:
         if delete_messages:
@@ -120,6 +137,8 @@ async def end_sequence(client, message: Message):
             logger.info(f"Deleted {len(delete_messages)} sequence messages for user {user_id}.")
     except Exception as e:
         logger.error(f"Error deleting messages for user {user_id}: {e}", exc_info=True)
+
+# ... (rest of your helper functions and auto_rename_file_single function remain unchanged) ...
 
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
@@ -202,15 +221,31 @@ async def auto_rename_file_single(client, message, file_info):
 
         if not format_template:
             logger.warning(f"User {user_id} has no rename format set.")
-            return await message.reply_text(
-                "Please Set An Auto Rename Format First Using /autorename"
-            )
+            # For sequence processing, we might want to just skip this file or use original name
+            # For single processing, this message is fine.
+            if user_id not in active_sequences: # Only send this if not in an active sequence
+                return await message.reply_text("Please Set An Auto Rename Format First Using /autorename")
+            else:
+                logger.warning(f"Skipping rename for {file_name} in sequence due to no format template.")
+                # If no format, maybe just send the original file back without processing
+                await client.send_document(
+                    message.chat.id,
+                    file_id, # Send original file if no format template
+                    caption=file_name
+                )
+                return
+
 
         media_type = media_preference or "document"
-        if file_name.endswith(".mp4"):
+        # Determine actual media type from the message object, not just file_name
+        if message.video:
             media_type = "video"
-        elif file_name.endswith(".mp3"):
+        elif message.audio:
             media_type = "audio"
+        elif message.document:
+            # Check document mime type or filename extension if needed, but for general purposes, document is fine.
+            pass
+
 
         if await check_anti_nsfw(file_name, message):
             logger.warning(f"NSFW content detected for file {file_name} from user {user_id}.")
@@ -258,7 +293,7 @@ async def auto_rename_file_single(client, message, file_info):
 
         try:
             path = await client.download_media(
-                message,
+                message, # Pass the original message for download
                 file_name=downloaded_file_path,
                 progress=progress_for_pyrogram,
                 progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ....!!", download_msg, time.time()),
@@ -280,17 +315,27 @@ async def auto_rename_file_single(client, message, file_info):
             del renaming_operations[file_id]
             return
 
+        # Prepare metadata for ffmpeg command, ensuring default values if database lookups fail
+        title = await codeflixbots.get_title(user_id) or ''
+        artist = await codeflixbots.get_artist(user_id) or ''
+        author = await codeflixbots.get_author(user_id) or ''
+        video_tag = await codeflixbots.get_video(user_id) or ''
+        audio_tag = await codeflixbots.get_audio(user_id) or ''
+        subtitle_tag = await codeflixbots.get_subtitle(user_id) or ''
+        encoded_by = await codeflixbots.get_encoded_by(user_id) or ''
+        custom_tag = await codeflixbots.get_custom_tag(user_id) or ''
+
         metadata_command = [
             ffmpeg_cmd,
             '-i', path,
-            '-metadata', f'title={await codeflixbots.get_title(user_id)}',
-            '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
-            '-metadata', f'author={await codeflixbots.get_author(user_id)}',
-            '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-            '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
-            '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
-            '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
-            '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
+            '-metadata', f'title={title}',
+            '-metadata', f'artist={artist}',
+            '-metadata', f'author={author}',
+            '-metadata:s:v', f'title={video_tag}',
+            '-metadata:s:a', f'title={audio_tag}',
+            '-metadata:s:s', f'title={subtitle_tag}',
+            '-metadata', f'encoded_by={encoded_by}',
+            '-metadata', f'custom_tag={custom_tag}',
             '-map', '0',
             '-c', 'copy',
             '-loglevel', 'error',
@@ -327,11 +372,30 @@ async def auto_rename_file_single(client, message, file_info):
         c_caption = await codeflixbots.get_caption(message.chat.id)
         c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
 
+        # Safely get file_size, duration, width, height from the message object
+        # It's better to get these directly from the 'message' object passed to the function
+        # since 'file_info' only contains file_id and file_name.
+        file_size = 0
+        duration = 0
+        width = 0
+        height = 0
+
+        if message.document:
+            file_size = message.document.file_size
+        elif message.video:
+            file_size = message.video.file_size
+            duration = message.video.duration
+            width = message.video.width
+            height = message.video.height
+        elif message.audio:
+            file_size = message.audio.file_size
+            duration = message.audio.duration
+
         caption = (
             c_caption.format(
                 filename=renamed_file_name,
-                filesize=humanbytes(message.document.file_size if message.document else message.video.file_size if message.video else message.audio.file_size), # Use correct file_size
-                duration=convert(message.video.duration if message.video else message.audio.duration if message.audio else 0), # Use actual duration
+                filesize=humanbytes(file_size),
+                duration=convert(duration),
             )
             if c_caption
             else f"{renamed_file_name}"
@@ -371,9 +435,9 @@ async def auto_rename_file_single(client, message, file_info):
                     video=final_upload_path,
                     caption=caption,
                     thumb=ph_path,
-                    duration=message.video.duration if message.video else 0, # Used actual duration
-                    width=message.video.width if message.video else 0,
-                    height=message.video.height if message.video else 0,
+                    duration=duration,
+                    width=width,
+                    height=height,
                     progress=progress_for_pyrogram,
                     progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
                 )
@@ -383,7 +447,7 @@ async def auto_rename_file_single(client, message, file_info):
                     audio=final_upload_path,
                     caption=caption,
                     thumb=ph_path,
-                    duration=message.audio.duration if message.audio else 0, # Used actual duration
+                    duration=duration,
                     progress=progress_for_pyrogram,
                     progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
                 )
