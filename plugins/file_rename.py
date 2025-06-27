@@ -16,23 +16,9 @@ active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Task queue for real concurrent auto renaming ---
-class TaskQueue:
-    def __init__(self, concurrency=3):
-        self.semaphore = asyncio.Semaphore(concurrency)
-
-    async def add(self, coro):
-        # Launch each task as a background task, limited by the semaphore
-        asyncio.create_task(self.worker(coro))
-
-    async def worker(self, coro):
-        async with self.semaphore:
-            try:
-                await coro
-            except Exception as e:
-                print(f"Task error: {e}")
-
-task_queue = TaskQueue(concurrency=3)  # adjust as needed
+# --- Semaphores for concurrent operations ---
+download_semaphore = asyncio.Semaphore(5)  # Allow 5 concurrent downloads
+upload_semaphore = asyncio.Semaphore(3)    # Allow 3 concurrent uploads
 
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
@@ -70,8 +56,8 @@ async def auto_rename_files(client, message):
         await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
         return
 
-    # Not in sequence: add to concurrent task queue for auto renaming
-    await task_queue.add(auto_rename_file(client, message, file_info))
+    # Not in sequence: Create concurrent task for auto renaming
+    asyncio.create_task(auto_rename_file(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
 async def end_sequence(client, message: Message):
@@ -108,6 +94,7 @@ pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
 pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
 pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
+
 pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
 patternX = re.compile(r'(\d+)')
 pattern5 = re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE)
@@ -166,6 +153,56 @@ async def process_thumb(ph_path):
         img = img.resize((320, 320))
         img.save(path, "JPEG")
     await asyncio.to_thread(_resize_thumb, ph_path)
+
+async def concurrent_download(client, message, renamed_file_path, progress_msg):
+    """Handle concurrent downloading with semaphore"""
+    async with download_semaphore:
+        try:
+            path = await client.download_media(
+                message,
+                file_name=renamed_file_path,
+                progress=progress_for_pyrogram,
+                progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ....!!", progress_msg, time.time()),
+            )
+            return path
+        except Exception as e:
+            raise Exception(f"Download Error: {e}")
+
+async def concurrent_upload(client, message, path, media_type, caption, ph_path, progress_msg):
+    """Handle concurrent uploading with semaphore"""
+    async with upload_semaphore:
+        try:
+            if media_type == "document":
+                await client.send_document(
+                    message.chat.id,
+                    document=path,
+                    thumb=ph_path,
+                    caption=caption,
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", progress_msg, time.time()),
+                )
+            elif media_type == "video":
+                await client.send_video(
+                    message.chat.id,
+                    video=path,
+                    caption=caption,
+                    thumb=ph_path,
+                    duration=0,
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", progress_msg, time.time()),
+                )
+            elif media_type == "audio":
+                await client.send_audio(
+                    message.chat.id,
+                    audio=path,
+                    caption=caption,
+                    thumb=ph_path,
+                    duration=0,
+                    progress=progress_for_pyrogram,
+                    progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", progress_msg, time.time()),
+                )
+        except Exception as e:
+            raise Exception(f"Upload Error: {e}")
 
 async def auto_rename_file(client, message, file_info):
     try:
@@ -227,15 +264,11 @@ async def auto_rename_file(client, message, file_info):
         ph_path = None
 
         try:
-            path = await client.download_media(
-                message,
-                file_name=renamed_file_path,
-                progress=progress_for_pyrogram,
-                progress_args=("Dᴏᴡɴʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ....!!", download_msg, time.time()),
-            )
+            # Use concurrent download with semaphore
+            path = await concurrent_download(client, message, renamed_file_path, download_msg)
         except Exception as e:
             del renaming_operations[file_id]
-            return await download_msg.edit(f"Download Error: {e}")
+            return await download_msg.edit(str(e))
 
         await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
 
@@ -257,7 +290,7 @@ async def auto_rename_file(client, message, file_info):
             metadata_file_path
         ]
 
-        try:
+try:
             process = await asyncio.create_subprocess_exec(
                 *metadata_command,
                 stdout=asyncio.subprocess.PIPE,
@@ -296,42 +329,15 @@ async def auto_rename_file(client, message, file_info):
                 await process_thumb(ph_path)
 
             try:
-                if media_type == "document":
-                    await client.send_document(
-                        message.chat.id,
-                        document=path,
-                        thumb=ph_path,
-                        caption=caption,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
-                elif media_type == "video":
-                    await client.send_video(
-                        message.chat.id,
-                        video=path,
-                        caption=caption,
-                        thumb=ph_path,
-                        duration=0,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
-                elif media_type == "audio":
-                    await client.send_audio(
-                        message.chat.id,
-                        audio=path,
-                        caption=caption,
-                        thumb=ph_path,
-                        duration=0,
-                        progress=progress_for_pyrogram,
-                        progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", upload_msg, time.time()),
-                    )
+                # Use concurrent upload with semaphore
+                await concurrent_upload(client, message, path, media_type, caption, ph_path, upload_msg)
             except Exception as e:
                 if os.path.exists(renamed_file_path):
                     os.remove(renamed_file_path)
                 if ph_path and os.path.exists(ph_path):
                     os.remove(ph_path)
                 del renaming_operations[file_id]
-                return await upload_msg.edit(f"Error: {e}")
+                return await upload_msg.edit(str(e))
 
             await download_msg.delete()
             if os.path.exists(path):
