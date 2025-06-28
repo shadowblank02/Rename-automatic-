@@ -25,6 +25,28 @@ def detect_quality(file_name):
     match = re.search(r"(480p|720p|1080p)", file_name)
     return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
 
+def extract_episode_number(filename):
+    """Extract episode number from filename for sorting"""
+    pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
+    pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
+    pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
+    pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
+    pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
+    patternX = re.compile(r'(\d+)')
+    
+    # Try each pattern in order of specificity
+    for pattern in [pattern1, pattern2, pattern3, pattern3_2, pattern4]:
+        match = re.search(pattern, filename)
+        if match:
+            return int(match.groups()[-1])  # Return the last captured group as episode number
+    
+    # Fallback to any number in filename
+    match = re.search(patternX, filename)
+    if match:
+        return int(match.group(1))
+    
+    return 999  # Default high number for files without episode numbers
+
 @Client.on_message(filters.command("start_sequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -49,11 +71,17 @@ async def auto_rename_files(client, message):
         message.video.file_name if message.video else
         message.audio.file_name
     )
-    file_info = {"file_id": file_id, "file_name": file_name if file_name else "Unknown"}
+    file_info = {
+        "file_id": file_id, 
+        "file_name": file_name if file_name else "Unknown",
+        "message": message,  # Store the entire message for later processing
+        "episode_num": extract_episode_number(file_name if file_name else "Unknown")
+    }
 
     if user_id in active_sequences:
         active_sequences[user_id].append(file_info)
-        await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
+        reply_msg = await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
+        message_ids[user_id].append(reply_msg.message_id)
         return
 
     # Not in sequence: Create concurrent task for auto renaming
@@ -73,28 +101,52 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ.Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) Bᴀᴄᴋ ɪɴ ᴀ sᴇǫᴜᴇɴᴄᴇ...!!")
-        # Send all files back in the order they were received
-        for file in file_list:
+        # Sort files by episode number for proper sequence
+        file_list.sort(key=lambda x: x["episode_num"])
+        
+        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
+        
+        # Send files back one by one in sequence WITHOUT processing
+        for index, file_info in enumerate(file_list, 1):
             try:
-                await client.send_document(
-                    message.chat.id,
-                    file["file_id"],
-                    caption=file.get("file_name", "")
-                )
+                await asyncio.sleep(0.5)  # Small delay to maintain sequence order
+                
+                # Send the original file back without any modification
+                if file_info["message"].document:
+                    await client.send_document(
+                        message.chat.id,
+                        file_info["file_id"],
+                        caption=f"📁 {index}/{count} - {file_info['file_name']}"
+                    )
+                elif file_info["message"].video:
+                    await client.send_video(
+                        message.chat.id,
+                        file_info["file_id"],
+                        caption=f"🎥 {index}/{count} - {file_info['file_name']}"
+                    )
+                elif file_info["message"].audio:
+                    await client.send_audio(
+                        message.chat.id,
+                        file_info["file_id"],
+                        caption=f"🎵 {index}/{count} - {file_info['file_name']}"
+                    )
+                
             except Exception as e:
-                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file.get('file_name', '')}\n{e}")
+                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file_info.get('file_name', '')}\n{e}")
+        
+        await message.reply_text(f"✅ Aʟʟ {count} ғɪʟᴇs sᴇɴᴛ sᴜᴄᴄᴇssғᴜʟʟʏ ɪɴ sᴇǫᴜᴇɴᴄᴇ!")
 
+    # Clean up messages
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
     except Exception as e:
         print(f"Error deleting messages: {e}")
 
+# Regex patterns for filename parsing
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
 pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
 pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-
 pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
 patternX = re.compile(r'(\d+)')
 pattern5 = re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE)
@@ -124,27 +176,6 @@ def extract_quality(filename):
     if match10:
         return "4kx265"
     return "Unknown"
-
-def extract_episode_number(filename):
-    match = re.search(pattern1, filename)
-    if match:
-        return match.group(2)
-    match = re.search(pattern2, filename)
-    if match:
-        return match.group(2)
-    match = re.search(pattern3, filename)
-    if match:
-        return match.group(1)
-    match = re.search(pattern3_2, filename)
-    if match:
-        return match.group(1)
-    match = re.search(pattern4, filename)
-    if match:
-        return match.group(2)
-    match = re.search(patternX, filename)
-    if match:
-        return match.group(1)
-    return None
 
 async def process_thumb(ph_path):
     # Offload PIL image work to a thread for real concurrency
@@ -204,7 +235,7 @@ async def concurrent_upload(client, message, path, media_type, caption, ph_path,
         except Exception as e:
             raise Exception(f"Upload Error: {e}")
 
-async def auto_rename_file(client, message, file_info):
+async def auto_rename_file(client, message, file_info, is_sequence=False, status_msg=None):
     try:
         user_id = message.from_user.id
         file_id = file_info["file_id"]
@@ -214,9 +245,11 @@ async def auto_rename_file(client, message, file_info):
         media_preference = await codeflixbots.get_media_preference(user_id)
 
         if not format_template:
-            return await message.reply_text(
-                "Please Set An Auto Rename Format First Using /autorename"
-            )
+            error_msg = "Please Set An Auto Rename Format First Using /autorename"
+            if status_msg:
+                return await status_msg.edit(error_msg)
+            else:
+                return await message.reply_text(error_msg)
 
         media_type = media_preference or "document"
         if file_name.endswith(".mp4"):
@@ -225,7 +258,11 @@ async def auto_rename_file(client, message, file_info):
             media_type = "audio"
 
         if await check_anti_nsfw(file_name, message):
-            return await message.reply_text("NSFW content detected. File upload rejected.")
+            error_msg = "NSFW content detected. File upload rejected."
+            if status_msg:
+                return await status_msg.edit(error_msg)
+            else:
+                return await message.reply_text(error_msg)
 
         if file_id in renaming_operations:
             elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
@@ -247,7 +284,11 @@ async def auto_rename_file(client, message, file_info):
                 if quality_placeholder in template:
                     extracted_qualities = extract_quality(file_name)
                     if extracted_qualities == "Unknown":
-                        await message.reply_text("I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...")
+                        error_msg = "I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'..."
+                        if status_msg:
+                            await status_msg.edit(error_msg)
+                        else:
+                            await message.reply_text(error_msg)
                         del renaming_operations[file_id]
                         return
                     template = template.replace(quality_placeholder, "".join(extracted_qualities))
@@ -259,7 +300,11 @@ async def auto_rename_file(client, message, file_info):
         os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
         os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
 
-        download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
+        if status_msg:
+            download_msg = status_msg
+            await download_msg.edit("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
+        else:
+            download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
         ph_path = None
 
@@ -290,7 +335,7 @@ async def auto_rename_file(client, message, file_info):
             metadata_file_path
         ]
 
-try:
+        try:
             process = await asyncio.create_subprocess_exec(
                 *metadata_command,
                 stdout=asyncio.subprocess.PIPE,
@@ -339,18 +384,21 @@ try:
                 del renaming_operations[file_id]
                 return await upload_msg.edit(str(e))
 
-            await download_msg.delete()
+            # Delete the download message only if not in sequence mode
+            if not is_sequence:
+                await download_msg.delete()
+            else:
+                await download_msg.edit(f"✅ Cᴏᴍᴘʟᴇᴛᴇᴅ: {renamed_file_name}")
+
+            # Clean up files
             if os.path.exists(path):
                 os.remove(path)
             if ph_path and os.path.exists(ph_path):
                 os.remove(ph_path)
-
             if os.path.exists(renamed_file_path):
                 os.remove(renamed_file_path)
             if os.path.exists(metadata_file_path):
                 os.remove(metadata_file_path)
-            if ph_path and os.path.exists(ph_path):
-                os.remove(ph_path)
             if file_id in renaming_operations:
                 del renaming_operations[file_id]
 
