@@ -116,19 +116,19 @@ async def end_sequence(client, message: Message):
                     await client.send_document(
                         message.chat.id,
                         file_info["file_id"],
-                        caption=f"📁 {index}/{count} - {file_info['file_name']}"
+                        caption=f"{file_info['file_name']}"
                     )
                 elif file_info["message"].video:
                     await client.send_video(
                         message.chat.id,
                         file_info["file_id"],
-                        caption=f"🎥 {index}/{count} - {file_info['file_name']}"
+                        caption=f"{file_info['file_name']}"
                     )
                 elif file_info["message"].audio:
                     await client.send_audio(
                         message.chat.id,
                         file_info["file_id"],
-                        caption=f"🎵 {index}/{count} - {file_info['file_name']}"
+                        caption=f"{file_info['file_name']}"
                     )
                 
             except Exception as e:
