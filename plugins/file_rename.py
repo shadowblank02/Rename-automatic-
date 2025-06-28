@@ -32,25 +32,38 @@ def detect_quality(file_name):
     match = re.search(r"(480p|720p|1080p)", file_name)
     return quality_order.get(match.group(1), 4) if match else 4
 
-def extract_episode_number(filename):
-    """Extract episode number from filename for sorting"""
-    pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
-    pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
-    pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
-    pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-    pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
-    patternX = re.compile(r'(\d+)')
-    
-    for pattern in [pattern1, pattern2, pattern3, pattern3_2, pattern4]:
+def extract_season_episode(filename):
+    """Extract season and episode number from filename for sorting and renaming"""
+    # Patterns for SXXEXX (e.g., S01E05, S1EP05)
+    pattern1 = re.compile(r'[sS](\d+)(?:[eE]|EP)(\d+)')
+    # Patterns for Season X Episode Y (e.g., Season 1 Episode 5)
+    pattern2 = re.compile(r'(?:Season|S)\s*(\d+)\s*(?:Episode|E|EP)\s*(\d+)', re.IGNORECASE)
+    # Patterns for X0Y (e.g., 105 for S01E05) - less reliable, use with caution
+    pattern3 = re.compile(r'(\d)(\d{2})') # Catches 105, 210 etc. (SxE or SXXE)
+
+    # Prioritize patterns that explicitly define season and episode
+    for pattern in [pattern1, pattern2]:
         match = re.search(pattern, filename)
         if match:
-            return int(match.groups()[-1])
+            season = int(match.group(1))
+            episode = int(match.group(2))
+            return season, episode
     
-    match = re.search(patternX, filename)
-    if match:
-        return int(match.group(1))
-    
-    return 999
+    # Fallback for patterns that might imply season/episode but are less explicit
+    # This might require more context or careful regex
+    # Example for files named like "Show.Name.101.mp4" (Season 1 Episode 1)
+    match_fallback = re.search(pattern3, filename)
+    if match_fallback:
+        # This is a heuristic and might need refinement based on actual filenames
+        # Assuming the first digit is season and the next two are episode
+        if len(match_fallback.group(0)) == 3: # e.g., "101"
+            season = int(match_fallback.group(1))
+            episode = int(match_fallback.group(2))
+            if episode <= 99: # Avoid misinterpreting year/other numbers as episodes
+                return season, episode
+
+    # If no season/episode found, return default values
+    return 0, 999 # Use 0 for unknown season, 999 for unknown episode (for sorting at end)
 
 # --- Enhanced filename generation with UUID for uniqueness ---
 def generate_unique_paths(renamed_file_name):
@@ -91,11 +104,15 @@ async def auto_rename_files(client, message):
         message.video.file_name if message.video else
         message.audio.file_name
     )
+    
+    season_num, episode_num = extract_season_episode(file_name if file_name else "Unknown")
+
     file_info = {
         "file_id": file_id, 
         "file_name": file_name if file_name else "Unknown",
         "message": message,
-        "episode_num": extract_episode_number(file_name if file_name else "Unknown")
+        "season_num": season_num, # Added season number
+        "episode_num": episode_num
     }
 
     if user_id in active_sequences:
@@ -122,7 +139,8 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        file_list.sort(key=lambda x: x["episode_num"])
+        # Sort by season, then by episode
+        file_list.sort(key=lambda x: (x["season_num"], x["episode_num"]))
         await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
         
         for index, file_info in enumerate(file_list, 1):
@@ -159,12 +177,6 @@ async def end_sequence(client, message: Message):
         print(f"Error deleting messages: {e}")
 
 # Regex patterns for filename parsing
-pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
-pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
-pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
-pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
-patternX = re.compile(r'(\d+)')
 pattern5 = re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE)
 pattern6 = re.compile(r'[([<{]?\s*4k\s*[)\]>}]?', re.IGNORECASE)
 pattern7 = re.compile(r'[([<{]?\s*2k\s*[)\]>}]?', re.IGNORECASE)
@@ -277,6 +289,8 @@ async def auto_rename_file_concurrent(client, message, file_info):
             user_id = message.from_user.id
             file_id = file_info["file_id"]
             file_name = file_info["file_name"]
+            season_number = file_info["season_num"] # Get season number
+            episode_number = file_info["episode_num"]
 
             # Early duplicate check
             if file_id in renaming_operations:
@@ -305,24 +319,29 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 return
 
             # Process template
-            episode_number = extract_episode_number(file_name)
-            print(f"Extracted Episode Number: {episode_number}")
+            print(f"Extracted Season Number: {season_number}, Episode Number: {episode_number}")
 
             template = format_template
-            if episode_number:
-                placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
-                for placeholder in placeholders:
-                    template = template.replace(placeholder, str(episode_number), 1)
+            
+            # Replace episode placeholders
+            episode_placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
+            for placeholder in episode_placeholders:
+                template = template.replace(placeholder, str(episode_number), 1)
+
+            # Replace season placeholders (added)
+            season_placeholders = ["season", "Season", "SEASON", "{season}"]
+            for placeholder in season_placeholders:
+                template = template.replace(placeholder, str(season_number), 1)
                 
-                quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
-                for quality_placeholder in quality_placeholders:
-                    if quality_placeholder in template:
-                        extracted_qualities = extract_quality(file_name)
-                        if extracted_qualities == "Unknown":
-                            await message.reply_text("I Wᴀs Nᴏᴛ Aʙʟᴇ Tᴏ Exᴛʀᴀᴄᴛ Tʜᴇ Qᴜᴀʟɪᴛʏ Pʀᴏᴘᴇʀʟʏ. Rᴇɴᴀᴍɪɴɢ As 'Uɴᴋɴᴏᴡɴ'...")
-                            del renaming_operations[file_id]
-                            return
-                        template = template.replace(quality_placeholder, "".join(extracted_qualities))
+            quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
+            for quality_placeholder in quality_placeholders:
+                if quality_placeholder in template:
+                    extracted_qualities = extract_quality(file_name)
+                    if extracted_qualities == "Unknown":
+                        await message.reply_text("I Wᴀs Nᴏᴛ Aʙʟᴇ Tᴏ Exᴛʀᴀᴄᴛ Tʜᴇ Qᴜᴀʟɪᴛʏ Pʀᴏᴘᴇʀʟʏ. Rᴇɴᴀᴍɪɴɢ As 'Uɴᴋɴᴏᴡɴ'...")
+                        del renaming_operations[file_id]
+                        return
+                    template = template.replace(quality_placeholder, "".join(extracted_qualities))
 
             _, file_extension = os.path.splitext(file_name)
             renamed_file_name = f"{template}{file_extension}"
