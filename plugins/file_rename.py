@@ -3,7 +3,9 @@ import re
 import time
 import shutil
 import asyncio
+import uuid
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -16,14 +18,19 @@ active_sequences = {}
 message_ids = {}
 renaming_operations = {}
 
-# --- Semaphores for concurrent operations ---
+# --- Enhanced Semaphores for better concurrency ---
 download_semaphore = asyncio.Semaphore(5)  # Allow 5 concurrent downloads
 upload_semaphore = asyncio.Semaphore(3)    # Allow 3 concurrent uploads
+ffmpeg_semaphore = asyncio.Semaphore(2)    # Limit FFmpeg processes
+processing_semaphore = asyncio.Semaphore(10)  # Overall processing limit
+
+# Thread pool for CPU-intensive operations
+thread_pool = ThreadPoolExecutor(max_workers=4)
 
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
     match = re.search(r"(480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
+    return quality_order.get(match.group(1), 4) if match else 4
 
 def extract_episode_number(filename):
     """Extract episode number from filename for sorting"""
@@ -34,18 +41,31 @@ def extract_episode_number(filename):
     pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
     patternX = re.compile(r'(\d+)')
     
-    # Try each pattern in order of specificity
     for pattern in [pattern1, pattern2, pattern3, pattern3_2, pattern4]:
         match = re.search(pattern, filename)
         if match:
-            return int(match.groups()[-1])  # Return the last captured group as episode number
+            return int(match.groups()[-1])
     
-    # Fallback to any number in filename
     match = re.search(patternX, filename)
     if match:
         return int(match.group(1))
     
-    return 999  # Default high number for files without episode numbers
+    return 999
+
+# --- Enhanced filename generation with UUID for uniqueness ---
+def generate_unique_paths(renamed_file_name):
+    """Generate unique file paths to avoid conflicts"""
+    unique_id = str(uuid.uuid4())[:8]
+    base_name, ext = os.path.splitext(renamed_file_name)
+    
+    unique_file_name = f"{base_name}_{unique_id}{ext}"
+    renamed_file_path = f"downloads/{unique_file_name}"
+    metadata_file_path = f"Metadata/{unique_file_name}"
+    
+    os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
+    os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
+    
+    return renamed_file_path, metadata_file_path, unique_file_name
 
 @Client.on_message(filters.command("start_sequence") & filters.private)
 async def start_sequence(client, message: Message):
@@ -74,7 +94,7 @@ async def auto_rename_files(client, message):
     file_info = {
         "file_id": file_id, 
         "file_name": file_name if file_name else "Unknown",
-        "message": message,  # Store the entire message for later processing
+        "message": message,
         "episode_num": extract_episode_number(file_name if file_name else "Unknown")
     }
 
@@ -84,8 +104,9 @@ async def auto_rename_files(client, message):
         message_ids[user_id].append(reply_msg.message_id)
         return
 
-    # Not in sequence: Create concurrent task for auto renaming
-    asyncio.create_task(auto_rename_file(client, message, file_info))
+    # Create concurrent task for auto renaming - TRUE CONCURRENCY
+    task = asyncio.create_task(auto_rename_file_concurrent(client, message, file_info))
+    # Don't await here - let it run concurrently!
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
 async def end_sequence(client, message: Message):
@@ -101,17 +122,13 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        # Sort files by episode number for proper sequence
         file_list.sort(key=lambda x: x["episode_num"])
-        
         await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
         
-        # Send files back one by one in sequence WITHOUT processing
         for index, file_info in enumerate(file_list, 1):
             try:
-                await asyncio.sleep(0.5)  # Small delay to maintain sequence order
+                await asyncio.sleep(0.5)
                 
-                # Send the original file back without any modification
                 if file_info["message"].document:
                     await client.send_document(
                         message.chat.id,
@@ -136,7 +153,6 @@ async def end_sequence(client, message: Message):
         
         await message.reply_text(f"✅ Aʟʟ {count} ғɪʟᴇs sᴇɴᴛ sᴜᴄᴄᴇssғᴜʟʟʏ ɪɴ sᴇǫᴜᴇɴᴄᴇ!")
 
-    # Clean up messages
     try:
         await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
     except Exception as e:
@@ -177,13 +193,30 @@ def extract_quality(filename):
         return "4kx265"
     return "Unknown"
 
-async def process_thumb(ph_path):
-    # Offload PIL image work to a thread for real concurrency
+async def process_thumb_async(ph_path):
+    """Process thumbnail in thread pool to avoid blocking"""
     def _resize_thumb(path):
         img = Image.open(path).convert("RGB")
         img = img.resize((320, 320))
         img.save(path, "JPEG")
-    await asyncio.to_thread(_resize_thumb, ph_path)
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(thread_pool, _resize_thumb, ph_path)
+
+async def run_ffmpeg_async(metadata_command):
+    """Run FFmpeg in thread pool with semaphore control"""
+    async with ffmpeg_semaphore:
+        def _run_ffmpeg():
+            import subprocess
+            result = subprocess.run(
+                metadata_command,
+                capture_output=True,
+                text=True
+            )
+            return result.returncode, result.stdout, result.stderr
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(thread_pool, _run_ffmpeg)
 
 async def concurrent_download(client, message, renamed_file_path, progress_msg):
     """Handle concurrent downloading with semaphore"""
@@ -235,178 +268,170 @@ async def concurrent_upload(client, message, path, media_type, caption, ph_path,
         except Exception as e:
             raise Exception(f"Upload Error: {e}")
 
-async def auto_rename_file(client, message, file_info, is_sequence=False, status_msg=None):
-    try:
-        user_id = message.from_user.id
-        file_id = file_info["file_id"]
-        file_name = file_info["file_name"]
+async def auto_rename_file_concurrent(client, message, file_info):
+    """
+    MAIN CONCURRENT FUNCTION - Uses semaphores and thread pools for true concurrency
+    """
+    async with processing_semaphore:  # Limit overall concurrent processing
+        try:
+            user_id = message.from_user.id
+            file_id = file_info["file_id"]
+            file_name = file_info["file_name"]
 
-        format_template = await codeflixbots.get_format_template(user_id)
-        media_preference = await codeflixbots.get_media_preference(user_id)
+            # Early duplicate check
+            if file_id in renaming_operations:
+                elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
+                if elapsed_time < 10:
+                    return
+            renaming_operations[file_id] = datetime.now()
 
-        if not format_template:
-            error_msg = "Please Set An Auto Rename Format First Using /autorename"
-            if status_msg:
-                return await status_msg.edit(error_msg)
-            else:
-                return await message.reply_text(error_msg)
+            # Get user settings
+            format_template = await codeflixbots.get_format_template(user_id)
+            media_preference = await codeflixbots.get_media_preference(user_id)
 
-        media_type = media_preference or "document"
-        if file_name.endswith(".mp4"):
-            media_type = "video"
-        elif file_name.endswith(".mp3"):
-            media_type = "audio"
-
-        if await check_anti_nsfw(file_name, message):
-            error_msg = "NSFW content detected. File upload rejected."
-            if status_msg:
-                return await status_msg.edit(error_msg)
-            else:
-                return await message.reply_text(error_msg)
-
-        if file_id in renaming_operations:
-            elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
-            if elapsed_time < 10:
+            if not format_template:
+                await message.reply_text("Pʟᴇᴀsᴇ Sᴇᴛ Aɴ Aᴜᴛᴏ Rᴇɴᴀᴍᴇ Fᴏʀᴍᴀᴛ Fɪʀsᴛ Usɪɴɢ /autorename")
                 return
 
-        renaming_operations[file_id] = datetime.now()
+            media_type = media_preference or "document"
+            if file_name.endswith(".mp4"):
+                media_type = "video"
+            elif file_name.endswith(".mp3"):
+                media_type = "audio"
 
-        episode_number = extract_episode_number(file_name)
-        print(f"Extracted Episode Number: {episode_number}")
+            # NSFW check
+            if await check_anti_nsfw(file_name, message):
+                await message.reply_text("NSFW ᴄᴏɴᴛᴇɴᴛ ᴅᴇᴛᴇᴄᴛᴇᴅ. Fɪʟᴇ ᴜᴘʟᴏᴀᴅ ʀᴇᴊᴇᴄᴛᴇᴅ.")
+                return
 
-        template = format_template
-        if episode_number:
-            placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
-            for placeholder in placeholders:
-                template = template.replace(placeholder, str(episode_number), 1)
-            quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
-            for quality_placeholder in quality_placeholders:
-                if quality_placeholder in template:
-                    extracted_qualities = extract_quality(file_name)
-                    if extracted_qualities == "Unknown":
-                        error_msg = "I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'..."
-                        if status_msg:
-                            await status_msg.edit(error_msg)
-                        else:
-                            await message.reply_text(error_msg)
-                        del renaming_operations[file_id]
-                        return
-                    template = template.replace(quality_placeholder, "".join(extracted_qualities))
+            # Process template
+            episode_number = extract_episode_number(file_name)
+            print(f"Extracted Episode Number: {episode_number}")
 
-        _, file_extension = os.path.splitext(file_name)
-        renamed_file_name = f"{template}{file_extension}"
-        renamed_file_path = f"downloads/{renamed_file_name}"
-        metadata_file_path = f"Metadata/{renamed_file_name}"
-        os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
-        os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
+            template = format_template
+            if episode_number:
+                placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
+                for placeholder in placeholders:
+                    template = template.replace(placeholder, str(episode_number), 1)
+                
+                quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
+                for quality_placeholder in quality_placeholders:
+                    if quality_placeholder in template:
+                        extracted_qualities = extract_quality(file_name)
+                        if extracted_qualities == "Unknown":
+                            await message.reply_text("I Wᴀs Nᴏᴛ Aʙʟᴇ Tᴏ Exᴛʀᴀᴄᴛ Tʜᴇ Qᴜᴀʟɪᴛʏ Pʀᴏᴘᴇʀʟʏ. Rᴇɴᴀᴍɪɴɢ As 'Uɴᴋɴᴏᴡɴ'...")
+                            del renaming_operations[file_id]
+                            return
+                        template = template.replace(quality_placeholder, "".join(extracted_qualities))
 
-        if status_msg:
-            download_msg = status_msg
-            await download_msg.edit("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
-        else:
+            _, file_extension = os.path.splitext(file_name)
+            renamed_file_name = f"{template}{file_extension}"
+            
+            # Generate unique paths to avoid conflicts
+            renamed_file_path, metadata_file_path, unique_file_name = generate_unique_paths(renamed_file_name)
+
+            # Start download with status message
             download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
-        ph_path = None
-
-        try:
-            # Use concurrent download with semaphore
-            path = await concurrent_download(client, message, renamed_file_path, download_msg)
-        except Exception as e:
-            del renaming_operations[file_id]
-            return await download_msg.edit(str(e))
-
-        await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
-
-        ffmpeg_cmd = shutil.which('ffmpeg')
-        metadata_command = [
-            ffmpeg_cmd,
-            '-i', path,
-            '-metadata', f'title={await codeflixbots.get_title(user_id)}',
-            '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
-            '-metadata', f'author={await codeflixbots.get_author(user_id)}',
-            '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-            '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
-            '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
-            '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
-            '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
-            '-map', '0',
-            '-c', 'copy',
-            '-loglevel', 'error',
-            metadata_file_path
-        ]
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *metadata_command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
-            if process.returncode != 0:
-                error_message = stderr.decode()
-                await download_msg.edit(f"Metadata Error:\n{error_message}")
-                del renaming_operations[file_id]
-                return
-
-            path = metadata_file_path
-
-            upload_msg = await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
-
-            c_caption = await codeflixbots.get_caption(message.chat.id)
-            c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
-
-            caption = (
-                c_caption.format(
-                    filename=renamed_file_name,
-                    filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
-                    duration=convert(0),
-                )
-                if c_caption
-                else f"{renamed_file_name}"
-            )
-
-            if c_thumb:
-                ph_path = await client.download_media(c_thumb)
-            elif media_type == "video" and getattr(message.video, "thumbs", None):
-                ph_path = await client.download_media(message.video.thumbs[0].file_id)
-
-            if ph_path:
-                await process_thumb(ph_path)
+            ph_path = None
 
             try:
-                # Use concurrent upload with semaphore
-                await concurrent_upload(client, message, path, media_type, caption, ph_path, upload_msg)
-            except Exception as e:
-                if os.path.exists(renamed_file_path):
-                    os.remove(renamed_file_path)
-                if ph_path and os.path.exists(ph_path):
-                    os.remove(ph_path)
-                del renaming_operations[file_id]
-                return await upload_msg.edit(str(e))
+                # Concurrent download
+                path = await concurrent_download(client, message, renamed_file_path, download_msg)
+                
+                await download_msg.edit("Nᴏᴡ ᴀᴅᴅɪɴɢ ᴍᴇᴛᴀᴅᴀᴛᴀ ᴅᴜᴅᴇ...!!")
 
-            # Delete the download message only if not in sequence mode
-            if not is_sequence:
+                # Get metadata settings
+                ffmpeg_cmd = shutil.which('ffmpeg')
+                if not ffmpeg_cmd:
+                    raise Exception("FFmpeg not found")
+
+                metadata_command = [
+                    ffmpeg_cmd,
+                    '-i', path,
+                    '-metadata', f'title={await codeflixbots.get_title(user_id)}',
+                    '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
+                    '-metadata', f'author={await codeflixbots.get_author(user_id)}',
+                    '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
+                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
+                    '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
+                    '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
+                    '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
+                    '-map', '0',
+                    '-c', 'copy',
+                    '-loglevel', 'error',
+                    metadata_file_path
+                ]
+
+                # Run FFmpeg asynchronously in thread pool
+                returncode, stdout, stderr = await run_ffmpeg_async(metadata_command)
+                
+                if returncode != 0:
+                    error_message = stderr
+                    await download_msg.edit(f"Mᴇᴛᴀᴅᴀᴛᴀ Eʀʀᴏʀ:\n{error_message}")
+                    del renaming_operations[file_id]
+                    return
+
+                path = metadata_file_path
+
+                await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
+
+                # Prepare caption and thumbnail
+                c_caption = await codeflixbots.get_caption(message.chat.id)
+                c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
+
+                caption = (
+                    c_caption.format(
+                        filename=renamed_file_name,  # Use original renamed name, not unique
+                        filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
+                        duration=convert(0),
+                    )
+                    if c_caption
+                    else f"{renamed_file_name}"
+                )
+
+                # Process thumbnail concurrently
+                if c_thumb:
+                    ph_path = await client.download_media(c_thumb)
+                elif media_type == "video" and getattr(message.video, "thumbs", None):
+                    ph_path = await client.download_media(message.video.thumbs[0].file_id)
+
+                if ph_path:
+                    await process_thumb_async(ph_path)
+
+                # Concurrent upload
+                await concurrent_upload(client, message, path, media_type, caption, ph_path, download_msg)
+
+                # Success - delete status message
                 await download_msg.delete()
-            else:
-                await download_msg.edit(f"✅ Cᴏᴍᴘʟᴇᴛᴇᴅ: {renamed_file_name}")
 
-            # Clean up files
-            if os.path.exists(path):
-                os.remove(path)
-            if ph_path and os.path.exists(ph_path):
-                os.remove(ph_path)
-            if os.path.exists(renamed_file_path):
-                os.remove(renamed_file_path)
-            if os.path.exists(metadata_file_path):
-                os.remove(metadata_file_path)
-            if file_id in renaming_operations:
-                del renaming_operations[file_id]
+            except Exception as e:
+                await download_msg.edit(f"❌ Eʀʀᴏʀ: {str(e)}")
+                raise
+
+            finally:
+                # Cleanup files
+                cleanup_files = [path, renamed_file_path, metadata_file_path]
+                if ph_path:
+                    cleanup_files.append(ph_path)
+                
+                for file_path in cleanup_files:
+                    if file_path and os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except:
+                            pass
+                
+                # Remove from operations tracking
+                if file_id in renaming_operations:
+                    del renaming_operations[file_id]
 
         except Exception as e:
-            del renaming_operations[file_id]
-            return await download_msg.edit(f"Metadata/Processing Error: {e}")
+            if 'file_id' in locals() and file_id in renaming_operations:
+                del renaming_operations[file_id]
+            print(f"Concurrent rename error: {e}")
 
-    except Exception as e:
-        if 'file_id' in locals() and file_id in renaming_operations:
-            del renaming_operations[file_id]
-        raise
+# Keep the original function for sequence mode
+async def auto_rename_file(client, message, file_info, is_sequence=False, status_msg=None):
+    """Original function for sequence mode - kept for compatibility"""
+    return await auto_rename_file_concurrent(client, message, file_info)
