@@ -73,8 +73,16 @@ def extract_season_number(filename):
     return 1  # Default to season 1 if not found
 
 def extract_audio_info(filename):
-    """Extract audio information from filename"""
+    """Extract audio information from filename, including languages and 'dual'/'multi'"""
     audio_patterns = {
+        # Specific Audio Language/Type
+        'hindi': re.compile(r'\b(?:Hindi|HINDI)\b', re.IGNORECASE),
+        'english': re.compile(r'\b(?:English|ENGLISH)\b', re.IGNORECASE),
+        'multi': re.compile(r'\b(?:Multi|MULTI)\b', re.IGNORECASE),
+        'telugu': re.compile(r'\b(?:Telugu|TELUGU)\b', re.IGNORECASE),
+        'tamil': re.compile(r'\b(?:Tamil|TAMIL)\b', re.IGNORECASE),
+        'dual': re.compile(r'\b(?:Dual|DUAL)\b', re.IGNORECASE), # Keeping this from previous fix
+
         # Audio codecs
         'aac': re.compile(r'\b(?:AAC|aac)\b', re.IGNORECASE),
         'ac3': re.compile(r'\b(?:AC3|ac3|AC-3|ac-3)\b', re.IGNORECASE),
@@ -103,15 +111,19 @@ def extract_audio_info(filename):
     
     for audio_type, pattern in audio_patterns.items():
         if pattern.search(filename):
-            detected_audio.append(audio_type.upper())
+            # Prioritize language/type names over generic ones for cleaner output
+            if audio_type in ['hindi', 'english', 'multi', 'telugu', 'tamil', 'dual']:
+                detected_audio.insert(0, audio_type.upper()) # Add to beginning to prioritize
+            else:
+                detected_audio.append(audio_type.upper())
     
-    # Remove duplicates while preserving order
+    # Remove duplicates while preserving order (important after insert(0))
     detected_audio = list(dict.fromkeys(detected_audio))
     
     if detected_audio:
         return ' '.join(detected_audio)
     
-    return 'Unknown'
+    return 'Unknown' # Returns 'Unknown' if nothing specific is found
 
 # --- Enhanced filename generation with UUID for uniqueness ---
 def generate_unique_paths(renamed_file_name):
@@ -369,11 +381,11 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # Extract information from filename
             episode_number = extract_episode_number(file_name)
             season_number = extract_season_number(file_name)
-            audio_info = extract_audio_info(file_name) # Your added audio extraction
+            audio_info = extract_audio_info(file_name) 
             
             print(f"Extracted Episode Number: {episode_number}")
             print(f"Extracted Season Number: {season_number}")
-            print(f"Extracted Audio Info: {audio_info}") # Print for verification
+            print(f"Extracted Audio Info: {audio_info}")
 
             # Process template with all placeholders
             template = format_template
@@ -390,12 +402,27 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 for placeholder in season_placeholders:
                     template = template.replace(placeholder, str(season_number).zfill(2), 1)
             
-            # Audio placeholders (NEWLY ADDED LOGIC)
-            if audio_info and audio_info != "Unknown":
-                audio_placeholders = ["audio", "Audio", "AUDIO", "{audio}"]
-                for placeholder in audio_placeholders:
-                    template = template.replace(placeholder, audio_info, 1)
+            # Audio placeholders (Logic adjusted based on your feedback)
+            audio_placeholders = ["audio", "Audio", "AUDIO", "{audio}"]
             
+            # Determine the replacement for audio based on extracted info
+            replacement_audio = "" # Default to empty if nothing specific is found
+            if audio_info and audio_info != "Unknown":
+                replacement_audio = audio_info
+            
+            # If nothing was extracted by general patterns, but a specific language/type is present, use that.
+            # This handles cases like "[Hindi]" where "Hindi" is the only audio info.
+            # We already covered this well in extract_audio_info by adding these patterns.
+            # So, the logic below can be slightly simplified.
+            
+            for placeholder in audio_placeholders:
+                # Use regex to replace all occurrences of the placeholder,
+                # considering it might be enclosed in brackets like [audio] or {audio}
+                template = re.sub(re.escape(f"[{placeholder}]"), replacement_audio, template, flags=re.IGNORECASE)
+                template = re.sub(re.escape(f"{{{placeholder}}}"), replacement_audio, template, flags=re.IGNORECASE)
+                # Also replace plain "audio" if it appears
+                template = re.sub(re.escape(placeholder), replacement_audio, template, flags=re.IGNORECASE)
+
             # Quality placeholders
             quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
             for quality_placeholder in quality_placeholders:
@@ -436,7 +463,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
                     '-metadata', f'author={await codeflixbots.get_author(user_id)}',
                     '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}', # Correctly sets audio metadata
+                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}', 
                     '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
                     '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
                     '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
