@@ -22,7 +22,7 @@ renaming_operations = {}
 download_semaphore = asyncio.Semaphore(5)  # Allow 5 concurrent downloads
 upload_semaphore = asyncio.Semaphore(3)    # Allow 3 concurrent uploads
 ffmpeg_semaphore = asyncio.Semaphore(2)    # Limit FFmpeg processes
-processing_semaphore = asyncio.Semaphore(10)  # Overall processing limit
+processing_semaphore = asyncio.Semaphore(10) # Overall processing limit
 
 # Thread pool for CPU-intensive operations
 thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -60,7 +60,7 @@ def extract_season_number(filename):
         re.compile(r'Season\s*(\d+)', re.IGNORECASE),      # Season 1, Season 01
         re.compile(r'S(\d+)', re.IGNORECASE),              # S1, S01 (standalone)
         re.compile(r'Season(\d+)', re.IGNORECASE),         # Season1, Season01
-        re.compile(r'(?:^|\s)(\d+)(?:st|nd|rd|th)?\s*Season', re.IGNORECASE),  # 1st Season, 2nd Season
+        re.compile(r'(?:^|\s)(\d+)(?:st|nd|rd|th)?\s*Season', re.IGNORECASE), # 1st Season, 2nd Season
         re.compile(r'S\.(\d+)', re.IGNORECASE),            # S.01, S.1
     ]
     
@@ -369,11 +369,11 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # Extract information from filename
             episode_number = extract_episode_number(file_name)
             season_number = extract_season_number(file_name)
-            audio_info = extract_audio_info(file_name)
+            audio_info = extract_audio_info(file_name) # Your added audio extraction
             
             print(f"Extracted Episode Number: {episode_number}")
             print(f"Extracted Season Number: {season_number}")
-            print(f"Extracted Audio Info: {audio_info}")
+            print(f"Extracted Audio Info: {audio_info}") # Print for verification
 
             # Process template with all placeholders
             template = format_template
@@ -390,7 +390,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 for placeholder in season_placeholders:
                     template = template.replace(placeholder, str(season_number).zfill(2), 1)
             
-            # Audio placeholders
+            # Audio placeholders (NEWLY ADDED LOGIC)
             if audio_info and audio_info != "Unknown":
                 audio_placeholders = ["audio", "Audio", "AUDIO", "{audio}"]
                 for placeholder in audio_placeholders:
@@ -436,7 +436,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
                     '-metadata', f'author={await codeflixbots.get_author(user_id)}',
                     '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
+                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}', # Correctly sets audio metadata
                     '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
                     '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
                     '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
@@ -514,7 +514,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 del renaming_operations[file_id]
             print(f"Concurrent rename error: {e}")
 
-# Keep the original function for sequence mode
+# Keep the original function for sequence mode (it now calls the concurrent one)
 async def auto_rename_file(client, message, file_info, is_sequence=False, status_msg=None):
     """Original function for sequence mode - kept for compatibility"""
     return await auto_rename_file_concurrent(client, message, file_info)
