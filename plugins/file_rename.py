@@ -91,7 +91,9 @@ def extract_audio_info(filename):
         'Multi': re.compile(r'Multi(?:audio)?', re.IGNORECASE),
         'Telugu': re.compile(r'Telugu', re.IGNORECASE),
         'Tamil': re.compile(r'Tamil', re.IGNORECASE),
-        'Dual': re.compile(r'Dual(?:audio)?', re.IGNORECASE), 
+        'Dual': re.compile(r'Dual(?:audio)?', re.IGNORECASE), # Original Dual pattern
+        # Enhanced Dual detection to catch variations like "DUAL.AUDIO", "Dual-Audio", "[Dual]"
+        'Dual_Enhanced': re.compile(r'(?:DUAL(?:[\s._-]?AUDIO)?|\[DUAL\])', re.IGNORECASE), 
         # Add more specific codecs/channels if needed
         'AAC': re.compile(r'AAC', re.IGNORECASE),
         'AC3': re.compile(r'AC3', re.IGNORECASE),
@@ -103,34 +105,40 @@ def extract_audio_info(filename):
     
     detected_audio = []
     
-    # Check for 'Dual' first without strict word boundary if it's combined with quality
-    # This specifically addresses the '480pDUAL' case.
+    # 1. Check for 'pDual' first (e.g., 480pDUAL)
     if re.search(r'pDual(?:audio)?', filename, re.IGNORECASE):
         detected_audio.append("Dual")
 
-    # Prioritize language/type keywords (excluding 'Dual' which was handled above if combined)
+    # 2. Check for enhanced Dual patterns
+    if audio_keywords['Dual_Enhanced'].search(filename) and "Dual" not in detected_audio:
+        detected_audio.append("Dual")
+
+    # 3. Prioritize language/type keywords
     priority_keywords = ['Hindi', 'English', 'Multi', 'Telugu', 'Tamil']
-    
     for keyword in priority_keywords:
         if audio_keywords[keyword].search(filename):
             detected_audio.append(keyword)
             
-    # Also check for standalone 'Dual' if not already added
+    # 4. Also check for original standalone 'Dual' if not already added by other means
     if "Dual" not in detected_audio and audio_keywords['Dual'].search(filename):
         detected_audio.append("Dual")
 
-
-    # Add other codecs/channels if not already covered
+    # 5. Add other codecs/channels if not already covered
     for keyword, pattern in audio_keywords.items():
-        if keyword not in priority_keywords and keyword != 'Dual' and pattern.search(filename):
+        if keyword not in priority_keywords and keyword not in ['Dual', 'Dual_Enhanced'] and pattern.search(filename):
             detected_audio.append(keyword)
             
     # Remove duplicates while preserving order
     detected_audio = list(dict.fromkeys(detected_audio))
     
+    # For debugging:
+    print(f"DEBUG: Filename for audio extraction: {filename}")
+    print(f"DEBUG: Detected audio: {detected_audio}")
+
     if detected_audio:
         return ' '.join(detected_audio)
         
+    print(f"DEBUG: No specific audio found, returning None.")
     return None # Return None if nothing specific is found
 
 def extract_quality(filename):
@@ -395,30 +403,45 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
             print(f"Extracted Episode Number: {episode_number}")
             print(f"Extracted Season Number: {season_number}")
-            print(f"Extracted Audio Info: {audio_info_extracted}")
+            print(f"Extracted Audio Info: {audio_info_extracted}") # Debug print
             print(f"Extracted Quality: {quality_extracted}")
 
             template = format_template
             
             # --- Placeholder Replacement Logic ---
             
-            # 1. Specific 'SSeason' placeholder handling
-            season_value_formatted = str(season_number).zfill(2) if season_number is not None else ""
-            if "SSeason" in template:
+            # Use None to distinguish no extraction vs empty string
+            season_value_formatted = str(season_number).zfill(2) if season_number is not None else None 
+            episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else None 
+
+            # 1. Combined SSeason and EP{episode} placeholder handling
+            # This regex will look for the pattern [SSeason -EP{episode}] or variations
+            # and capture the parts inside the brackets.
+            season_episode_block_regex = re.compile(r'\[\s*SSeason\s*-\s*EP\{episode\}\s*\]', re.IGNORECASE)
+
+            def season_episode_replacer(match):
+                season_part = ""
+                episode_part = ""
+
                 if season_value_formatted:
-                    template = template.replace("SSeason", f"S{season_value_formatted}")
-                else:
-                    template = template.replace("SSeason", "") # Remove SSeason if no season found
-
-            # 2. Specific 'EP{episode}' placeholder handling
-            episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else ""
-            if "EP{episode}" in template:
+                    season_part = f"S{season_value_formatted}"
+                
                 if episode_value_formatted:
-                    template = template.replace("EP{episode}", f"EP{episode_value_formatted}")
-                else:
-                    template = template.replace("EP{episode}", "") # Remove EP{episode} if no episode found
+                    episode_part = f"EP{episode_value_formatted}"
 
-            # 3. Generic Season placeholder replacement (only for {season} or bare season)
+                if season_part and episode_part:
+                    return f"[{season_part} -{episode_part}]"
+                elif season_part: # Only season found
+                    return f"[{season_part}]"
+                elif episode_part: # Only episode found
+                    return f"[{episode_part}]"
+                else: # Neither found, remove the whole block
+                    return ""
+            
+            template = season_episode_block_regex.sub(season_episode_replacer, template)
+
+
+            # 2. Generic Season placeholder replacement (only for {season} or bare season)
             # This regex now specifically matches "{Season}" or "Season" (case-insensitive) as a whole word.
             season_generic_placeholder_regex = re.compile(r'\b(?:\{Season\}|Season)\b', re.IGNORECASE)
             def season_generic_replacer(match):
@@ -428,7 +451,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     return "" 
             template = season_generic_placeholder_regex.sub(season_generic_replacer, template)
 
-            # 4. Generic Episode placeholder replacement (only for {episode} or bare episode)
+            # 3. Generic Episode placeholder replacement (only for {episode} or bare episode)
             # This regex now specifically matches "{Episode}" or "Episode" (case-insensitive) as a whole word.
             episode_generic_placeholder_regex = re.compile(r'\b(?:\{Episode\}|Episode)\b', re.IGNORECASE)
             def episode_generic_replacer(match):
@@ -438,7 +461,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     return ""
             template = episode_generic_placeholder_regex.sub(episode_generic_replacer, template)
 
-            # 5. Audio placeholder replacement (only for {audio} or bare audio)
+            # 4. Audio placeholder replacement (only for {audio} or bare audio)
             # This regex now specifically matches "{Audio}" or "Audio}" (case-insensitive) as a whole word.
             replacement_audio = audio_info_extracted if audio_info_extracted else ""
             audio_placeholder_regex = re.compile(r'\[?\b(?:\{Audio\}|Audio)\b\]?', re.IGNORECASE) # Modified regex to include optional brackets
