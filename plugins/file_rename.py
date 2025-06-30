@@ -57,11 +57,11 @@ def extract_season_number(filename):
     # Pattern for Season extraction (S01, S1, Season 1, etc.)
     season_patterns = [
         re.compile(r'S(\d+)(?:E|EP|\s)', re.IGNORECASE),  # S01E01, S1E1, S01 E01
-        re.compile(r'Season\s*(\d+)', re.IGNORECASE),      # Season 1, Season 01
-        re.compile(r'S(\d+)', re.IGNORECASE),              # S1, S01 (standalone)
-        re.compile(r'Season(\d+)', re.IGNORECASE),         # Season1, Season01
+        re.compile(r'Season\s*(\d+)', re.IGNORECASE),     # Season 1, Season 01
+        re.compile(r'S(\d+)', re.IGNORECASE),             # S1, S01 (standalone)
+        re.compile(r'Season(\d+)', re.IGNORECASE),        # Season1, Season01
         re.compile(r'(?:^|\s)(\d+)(?:st|nd|rd|th)?\s*Season', re.IGNORECASE), # 1st Season, 2nd Season
-        re.compile(r'S\.(\d+)', re.IGNORECASE),            # S.01, S.1
+        re.compile(r'S\.(\d+)', re.IGNORECASE),           # S.01, S.1
     ]
     
     for pattern in season_patterns:
@@ -73,7 +73,7 @@ def extract_season_number(filename):
     return 1  # Default to season 1 if not found
 
 def extract_audio_info(filename):
-    """Extract audio information from filename, including languages and 'dual'/'multi'"""
+    """Extract audio information from filename, including languages, 'dual'/'multi', and generic 'audio'"""
     audio_patterns = {
         # Specific Audio Language/Type
         'hindi': re.compile(r'\b(?:Hindi|HINDI)\b', re.IGNORECASE),
@@ -81,8 +81,13 @@ def extract_audio_info(filename):
         'multi': re.compile(r'\b(?:Multi|MULTI)\b', re.IGNORECASE),
         'telugu': re.compile(r'\b(?:Telugu|TELUGU)\b', re.IGNORECASE),
         'tamil': re.compile(r'\b(?:Tamil|TAMIL)\b', re.IGNORECASE),
-        'dual': re.compile(r'\b(?:Dual|DUAL)\b', re.IGNORECASE), # Keeping this from previous fix
+        'dual': re.compile(r'\b(?:Dual|DUAL)\b', re.IGNORECASE),
 
+        # Generic "audio" pattern (more flexible to catch cases like '360paudio')
+        # This looks for 'audio' optionally preceded by common resolutions and optional whitespace
+        # Capture the quality and audio word together
+        'audio_quality_combo': re.compile(r'((?:360p|480p|720p|1080p)?\s*audio)\b', re.IGNORECASE), 
+        
         # Audio codecs
         'aac': re.compile(r'\b(?:AAC|aac)\b', re.IGNORECASE),
         'ac3': re.compile(r'\b(?:AC3|ac3|AC-3|ac-3)\b', re.IGNORECASE),
@@ -110,14 +115,18 @@ def extract_audio_info(filename):
     detected_audio = []
     
     for audio_type, pattern in audio_patterns.items():
-        if pattern.search(filename):
+        match = pattern.search(filename)
+        if match:
+            # For 'audio_quality_combo', capture the full matched string (e.g., "360paudio")
+            if audio_type == 'audio_quality_combo':
+                detected_audio.append(match.group(1).replace(' ', '').upper()) 
             # Prioritize language/type names over generic ones for cleaner output
-            if audio_type in ['hindi', 'english', 'multi', 'telugu', 'tamil', 'dual']:
-                detected_audio.insert(0, audio_type.upper()) # Add to beginning to prioritize
+            elif audio_type in ['hindi', 'english', 'multi', 'telugu', 'tamil', 'dual']:
+                detected_audio.insert(0, audio_type.upper()) 
             else:
                 detected_audio.append(audio_type.upper())
     
-    # Remove duplicates while preserving order (important after insert(0))
+    # Remove duplicates while preserving order
     detected_audio = list(dict.fromkeys(detected_audio))
     
     if detected_audio:
@@ -397,42 +406,82 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     template = template.replace(placeholder, str(episode_number).zfill(2), 1)
             
             # Season placeholders
-            if season_number:
+            if season_number: # Season 1 is default, so it's always "found" unless explicitly 0 or None
                 season_placeholders = ["season", "Season", "SEASON", "{season}"]
                 for placeholder in season_placeholders:
                     template = template.replace(placeholder, str(season_number).zfill(2), 1)
-            
-            # Audio placeholders (Logic adjusted based on your feedback)
-            audio_placeholders = ["audio", "Audio", "AUDIO", "{audio}"]
-            
-            # Determine the replacement for audio based on extracted info
-            replacement_audio = "" # Default to empty if nothing specific is found
-            if audio_info and audio_info != "Unknown":
-                replacement_audio = audio_info
-            
-            # If nothing was extracted by general patterns, but a specific language/type is present, use that.
-            # This handles cases like "[Hindi]" where "Hindi" is the only audio info.
-            # We already covered this well in extract_audio_info by adding these patterns.
-            # So, the logic below can be slightly simplified.
-            
-            for placeholder in audio_placeholders:
-                # Use regex to replace all occurrences of the placeholder,
-                # considering it might be enclosed in brackets like [audio] or {audio}
-                template = re.sub(re.escape(f"[{placeholder}]"), replacement_audio, template, flags=re.IGNORECASE)
-                template = re.sub(re.escape(f"{{{placeholder}}}"), replacement_audio, template, flags=re.IGNORECASE)
-                # Also replace plain "audio" if it appears
-                template = re.sub(re.escape(placeholder), replacement_audio, template, flags=re.IGNORECASE)
 
             # Quality placeholders
             quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
+            extracted_qualities = extract_quality(file_name)
+            
             for quality_placeholder in quality_placeholders:
-                if quality_placeholder in template:
-                    extracted_qualities = extract_quality(file_name)
+                # Handle bracketed quality, e.g., [Quality]
+                bracketed_pattern = re.escape(f"[{quality_placeholder}]")
+                if re.search(bracketed_pattern, template, re.IGNORECASE):
                     if extracted_qualities == "Unknown":
-                        await message.reply_text("I Wᴀs Nᴏᴛ Aʙʟᴇ Tᴏ Exᴛʀᴀᴄᴛ Tʜᴇ Qᴜᴀʟɪᴛʏ Pʀᴏᴘᴇʀʟʏ. Rᴇɴᴀᴍɪɴɢ As 'Uɴᴋɴᴏᴡɴ'...")
-                        del renaming_operations[file_id]
-                        return
-                    template = template.replace(quality_placeholder, "".join(extracted_qualities))
+                        template = re.sub(bracketed_pattern, '', template, flags=re.IGNORECASE) # Remove [Quality] if unknown
+                    else:
+                        template = re.sub(bracketed_pattern, f'[{extracted_qualities}]', template, flags=re.IGNORECASE)
+                
+                # Handle non-bracketed quality, e.g., {quality} or plain Quality
+                non_bracketed_pattern = re.compile(r'\b' + re.escape(quality_placeholder) + r'\b', re.IGNORECASE)
+                if re.search(non_bracketed_pattern, template, re.IGNORECASE):
+                    if extracted_qualities == "Unknown":
+                        template = re.sub(non_bracketed_pattern, '', template) # Remove Quality if unknown
+                    else:
+                        template = re.sub(non_bracketed_pattern, extracted_qualities, template)
+
+            # Audio placeholders (The main fix for [] removal)
+            actual_audio_string = ""
+            if audio_info and audio_info != "Unknown":
+                actual_audio_string = audio_info
+
+            # Replace [audio] with [ACTUAL_AUDIO_INFO] or just remove it if empty
+            if actual_audio_string:
+                template = re.sub(r'\[audio\]', f'[{actual_audio_string}]', template, flags=re.IGNORECASE)
+            else:
+                template = re.sub(r'\[audio\]', '', template, flags=re.IGNORECASE) # Remove [audio] completely if no audio info
+
+            # Also handle {audio} if it exists
+            if actual_audio_string:
+                template = re.sub(r'\{audio\}', f'[{actual_audio_string}]', template, flags=re.IGNORECASE)
+            else:
+                template = re.sub(r'\{audio\}', '', template, flags=re.IGNORECASE) # Remove {audio} completely if no audio info
+            
+            # If "audio" can appear without brackets (e.g., in "Wind breaker audio"), handle that too
+            template = re.sub(r'\baudio\b', actual_audio_string, template, flags=re.IGNORECASE)
+
+
+            # --- Specific cleanup for your format [SSeason -EP{episode}] ---
+            # This needs to be smart about your specific format `[SSeason -EP{episode}]`
+            # If episode and season are both not found/default, remove the whole block.
+            # Otherwise, only remove the missing part.
+            
+            # If episode is 999 (not found) and season is 1 (default/not explicitly found in a way that changes it)
+            if (episode_number == 999 or not episode_number) and (season_number == 1 or not season_number):
+                 # Remove the entire pattern [SSeason -EP{episode}]
+                template = re.sub(r'\[SSeason\s*-EP(?:{episode})?\]', '', template, flags=re.IGNORECASE)
+            else:
+                # If only episode is missing, clean up the episode part within the bracket
+                if episode_number == 999 or not episode_number:
+                    template = re.sub(r'EP\{episode\}', '', template, flags=re.IGNORECASE)
+                
+                # If only season is missing, clean up the season part within the bracket
+                if season_number == 1 or not season_number:
+                    template = re.sub(r'SSeason\s*-', '', template, flags=re.IGNORECASE)
+            
+            # --- Final Cleanup Steps ---
+            # Remove any resulting empty bracket pairs like "[]" that might remain
+            template = template.replace('[]', '').strip() 
+            
+            # Remove multiple spaces
+            template = re.sub(r'\s+', ' ', template).strip()
+            # Remove leading/trailing dashes, underscores, periods that might be left
+            template = re.sub(r'^[-\s._]+|[ -_.]+$', '', template)
+            # Normalize multiple spaces around dashes, e.g., " - " to "-"
+            template = re.sub(r'\s*-\s*', '-', template)
+
 
             _, file_extension = os.path.splitext(file_name)
             renamed_file_name = f"{template}{file_extension}"
