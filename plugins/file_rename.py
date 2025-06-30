@@ -19,10 +19,10 @@ message_ids = {}
 renaming_operations = {}
 
 # --- Enhanced Semaphores for better concurrency ---
-download_semaphore = asyncio.Semaphore(5)  # Allow 5 concurrent downloads
+download_semaphore = asyncio.Semaphore(3)  # Allow 3 concurrent downloads
 upload_semaphore = asyncio.Semaphore(3)    # Allow 3 concurrent uploads
-ffmpeg_semaphore = asyncio.Semaphore(2)    # Limit FFmpeg processes
-processing_semaphore = asyncio.Semaphore(10) # Overall processing limit
+ffmpeg_semaphore = asyncio.Semaphore(3)    # Limit FFmpeg processes
+processing_semaphore = asyncio.Semaphore(3) # Overall processing limit
 
 # Thread pool for CPU-intensive operations
 thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -39,22 +39,16 @@ def extract_episode_number(filename):
     pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
     pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
     pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
-    patternX = re.compile(r'(\d+)')
     
     for pattern in [pattern1, pattern2, pattern3, pattern3_2, pattern4]:
         match = re.search(pattern, filename)
         if match:
             return int(match.groups()[-1])
     
-    match = re.search(patternX, filename)
-    if match:
-        return int(match.group(1))
-    
-    return 999
+    return None # Return None if no specific episode pattern is found
 
 def extract_season_number(filename):
     """Extract season number from filename"""
-    # Pattern for Season extraction (S01, S1, Season 1, etc.)
     season_patterns = [
         re.compile(r'S(\d+)(?:E|EP|\s)', re.IGNORECASE),  # S01E01, S1E1, S01 E01
         re.compile(r'Season\s*(\d+)', re.IGNORECASE),      # Season 1, Season 01
@@ -68,9 +62,9 @@ def extract_season_number(filename):
         match = re.search(pattern, filename)
         if match:
             season_num = int(match.group(1))
-            return season_num if season_num > 0 else 1
+            return season_num # Return the found season number
     
-    return 1  # Default to season 1 if not found
+    return None # Return None if no specific season pattern is found
 
 def extract_audio_info(filename):
     """Extract audio information from filename, including languages and 'dual'/'multi'"""
@@ -111,11 +105,13 @@ def extract_audio_info(filename):
     
     for audio_type, pattern in audio_patterns.items():
         if pattern.search(filename):
+            # Format: First letter capitalized, rest lowercase
+            formatted_audio_type = audio_type.capitalize()
             # Prioritize language/type names over generic ones for cleaner output
             if audio_type in ['hindi', 'english', 'multi', 'telugu', 'tamil', 'dual']:
-                detected_audio.insert(0, audio_type.upper()) # Add to beginning to prioritize
+                detected_audio.insert(0, formatted_audio_type) # Add to beginning to prioritize
             else:
-                detected_audio.append(audio_type.upper())
+                detected_audio.append(formatted_audio_type)
     
     # Remove duplicates while preserving order (important after insert(0))
     detected_audio = list(dict.fromkeys(detected_audio))
@@ -195,7 +191,7 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        file_list.sort(key=lambda x: x["episode_num"])
+        file_list.sort(key=lambda x: x["episode_num"] if x["episode_num"] is not None else float('inf')) # Sort with None at end
         await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
         
         for index, file_info in enumerate(file_list, 1):
@@ -232,13 +228,6 @@ async def end_sequence(client, message: Message):
         print(f"Error deleting messages: {e}")
 
 # Regex patterns for filename parsing
-pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
-pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
-pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
-pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
-patternX = re.compile(r'(\d+)')
-# Updated pattern5 to include 360p
 pattern5 = re.compile(r'\b(?:.*?(\d{3}p|\d{3,4}[^\dp]*p).*?|.*?(\d{3}p|\d{3,4}p))\b', re.IGNORECASE)
 pattern6 = re.compile(r'[([<{]?\s*4k\s*[)\]>}]?', re.IGNORECASE)
 pattern7 = re.compile(r'[([<{]?\s*2k\s*[)\]>}]?', re.IGNORECASE)
@@ -382,42 +371,73 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # Extract information from filename
             episode_number = extract_episode_number(file_name)
             season_number = extract_season_number(file_name)
-            audio_info = extract_audio_info(file_name) 
+            audio_info_extracted = extract_audio_info(file_name) 
             
             print(f"Extracted Episode Number: {episode_number}")
             print(f"Extracted Season Number: {season_number}")
-            print(f"Extracted Audio Info: {audio_info}")
+            print(f"Extracted Audio Info: {audio_info_extracted}")
 
             # Process template with all placeholders
             template = format_template
             
-            # Episode placeholders
-            if episode_number and episode_number != 999:
-                episode_placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
-                for placeholder in episode_placeholders:
-                    template = template.replace(placeholder, str(episode_number).zfill(2), 1)
+            # --- Season Placeholder Replacement ---
+            season_value_formatted = str(season_number).zfill(2) if season_number is not None else ""
             
-            # Season placeholders
-            if season_number:
-                season_placeholders = ["season", "Season", "SEASON", "{season}"]
-                for placeholder in season_placeholders:
-                    template = template.replace(placeholder, str(season_number).zfill(2), 1)
+            # 1. Handle specific literal placeholder 'SSeason'
+            if "SSeason" in template:
+                template = template.replace("SSeason", f"S{season_value_formatted}" if season_value_formatted else "")
             
-            # Audio placeholders (Logic adjusted based on your feedback)
-            audio_placeholders = ["audio", "Audio", "AUDIO", "{audio}"]
-            
-            replacement_audio = audio_info if audio_info and audio_info != "Unknown" else ""
-            
-            for placeholder in audio_placeholders:
-                # This regex will match "[audio]", "{audio}", or "audio" (case-insensitive)
-                # and replace it with replacement_audio.
-                # If replacement_audio is empty, it will effectively remove "[audio]" or "{audio}"
-                # If replacement_audio is not empty, it will replace "[audio]" with "[YOUR_AUDIO_INFO]" or "{audio}" with "{YOUR_AUDIO_INFO}"
-                # If the user's template is just "audio", it will replace "audio" with "YOUR_AUDIO_INFO"
-                template = re.sub(r'(\[|\{)?' + re.escape(placeholder) + r'(\]|\})?', 
-                                  lambda m: f"{m.group(1) or ''}{replacement_audio}{m.group(2) or ''}", 
-                                  template, flags=re.IGNORECASE)
+            # 2. Handle generic season placeholders (e.g., [season], {season}, season)
+            season_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Season|SEASON|season|S)\s*(\]|\})?', re.IGNORECASE)
+            def season_replacer(match):
+                open_bracket = match.group(1) or ''
+                close_bracket = match.group(2) or ''
+                if season_value_formatted:
+                    return f"{open_bracket}{season_value_formatted}{close_bracket}"
+                else:
+                    return "" # Remove placeholder including brackets if season not found
+            template = season_placeholder_regex.sub(season_replacer, template)
 
+
+            # --- Episode Placeholder Replacement ---
+            episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else ""
+            
+            # 1. Handle specific literal placeholder 'EP{episode}'
+            if "EP{episode}" in template:
+                template = template.replace("EP{episode}", f"EP{episode_value_formatted}" if episode_value_formatted else "")
+
+            # 2. Handle generic episode placeholders (e.g., [episode], {episode}, episode, EP)
+            episode_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Episode|EPISODE|episode|EP)\s*(\]|\})?', re.IGNORECASE)
+            def episode_replacer(match):
+                open_bracket = match.group(1) or ''
+                close_bracket = match.group(2) or ''
+                if episode_value_formatted:
+                    return f"{open_bracket}{episode_value_formatted}{close_bracket}"
+                else:
+                    return "" # Remove placeholder including brackets if episode not found
+            template = episode_placeholder_regex.sub(episode_replacer, template)
+
+            
+            # --- Audio placeholder replacement ---
+            replacement_audio = audio_info_extracted if audio_info_extracted and audio_info_extracted != "Unknown" else ""
+
+            # Regex to match [audio], {audio}, or audio (case-insensitive, with optional leading/trailing spaces)
+            # and capture the surrounding brackets if they exist.
+            audio_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Audio|AUDIO|audio)\s*(\]|\})?', re.IGNORECASE)
+
+            # Define a replacer function
+            def audio_replacer(match):
+                open_bracket = match.group(1) or ''
+                close_bracket = match.group(2) or ''
+                
+                if replacement_audio:
+                    # If audio info exists, insert it within the original brackets or just the text if no brackets
+                    return f"{open_bracket}{replacement_audio}{close_bracket}"
+                else:
+                    # If no audio info, remove the entire placeholder including brackets
+                    return ""
+            
+            template = audio_placeholder_regex.sub(audio_replacer, template)
 
             # Quality placeholders
             quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
