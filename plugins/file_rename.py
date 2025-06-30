@@ -28,98 +28,129 @@ processing_semaphore = asyncio.Semaphore(3) # Overall processing limit
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
 def detect_quality(file_name):
+    """Detects quality for sorting, not for direct filename replacement."""
     quality_order = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
-    match = re.search(r"(360p|480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4
+    match = re.search(r"(360p|480p|720p|1080p)", file_name, re.IGNORECASE)
+    return quality_order.get(match.group(1).lower(), 4) if match else 4
 
 def extract_episode_number(filename):
-    """Extract episode number from filename for sorting"""
-    pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
-    pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
-    pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
-    pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-    pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
+    """
+    Extracts episode number from filename.
+    Prioritizes specific patterns (SXXEXX, EXX) to avoid misidentification.
+    """
+    patterns = [
+        # S01E01, S01.EP01, S01-E01 (S then optional separator then E/EP and digits)
+        re.compile(r'S\d+(?:[.-]?|_)?[EePp](\d+)', re.IGNORECASE),
+        # E01, EP01 (E/EP then digits, standalone or in brackets)
+        re.compile(r'(?:[EePp])(\d+)', re.IGNORECASE),
+        # Simple digit after common separators for episodes (e.g., - 01)
+        re.compile(r'[\s._-][EePp]?(\d+)(?:\s|\.|$)', re.IGNORECASE),
+        # Matches "1 of 10" or similar episode count structures
+        re.compile(r'\b(\d+)\s*of\s*\d+\b', re.IGNORECASE),
+    ]
     
-    for pattern in [pattern1, pattern2, pattern3, pattern3_2, pattern4]:
+    for pattern in patterns:
         match = re.search(pattern, filename)
         if match:
-            return int(match.groups()[-1])
-    
+            try:
+                return int(match.group(1))
+            except ValueError:
+                continue # Skip if conversion fails
+            
     return None # Return None if no specific episode pattern is found
 
 def extract_season_number(filename):
-    """Extract season number from filename"""
+    """
+    Extracts season number from filename.
+    Prioritizes specific patterns (SXXEXX, Season XX, SXX).
+    """
     season_patterns = [
-        re.compile(r'S(\d+)(?:E|EP|\s)', re.IGNORECASE),  # S01E01, S1E1, S01 E01
-        re.compile(r'Season\s*(\d+)', re.IGNORECASE),      # Season 1, Season 01
-        re.compile(r'S(\d+)', re.IGNORECASE),              # S1, S01 (standalone)
-        re.compile(r'Season(\d+)', re.IGNORECASE),         # Season1, Season01
-        re.compile(r'(?:^|\s)(\d+)(?:st|nd|rd|th)?\s*Season', re.IGNORECASE), # 1st Season, 2nd Season
-        re.compile(r'S\.(\d+)', re.IGNORECASE),            # S.01, S.1
+        # S01E01, S01.EP01, S01-E01 (S and digits then optional separator then E/EP and digits)
+        re.compile(r'S(\d+)(?:[.-]?|_)?[EePp]\d+', re.IGNORECASE),
+        # Season 1, Season 01
+        re.compile(r'Season\s*(\d+)', re.IGNORECASE),
+        # S1, S01 (standalone, followed by non-digit or end of string)
+        re.compile(r'\bS(\d+)(?:\D|$)', re.IGNORECASE), 
     ]
     
     for pattern in season_patterns:
         match = re.search(pattern, filename)
         if match:
-            season_num = int(match.group(1))
-            return season_num # Return the found season number
-    
+            try:
+                return int(match.group(1))
+            except ValueError:
+                continue # Skip if conversion fails
+            
     return None # Return None if no specific season pattern is found
 
 def extract_audio_info(filename):
-    """Extract audio information from filename, including languages and 'dual'/'multi'"""
-    audio_patterns = {
-        # Specific Audio Language/Type
-        'hindi': re.compile(r'\b(?:Hindi|HINDI)\b', re.IGNORECASE),
-        'english': re.compile(r'\b(?:English|ENGLISH)\b', re.IGNORECASE),
-        'multi': re.compile(r'\b(?:Multi|MULTI)\b', re.IGNORECASE),
-        'telugu': re.compile(r'\b(?:Telugu|TELUGU)\b', re.IGNORECASE),
-        'tamil': re.compile(r'\b(?:Tamil|TAMIL)\b', re.IGNORECASE),
-        'dual': re.compile(r'\b(?:Dual|DUAL)\b', re.IGNORECASE), # Keeping this from previous fix
-
-        # Audio codecs
-        'aac': re.compile(r'\b(?:AAC|aac)\b', re.IGNORECASE),
-        'ac3': re.compile(r'\b(?:AC3|ac3|AC-3|ac-3)\b', re.IGNORECASE),
-        'dts': re.compile(r'\b(?:DTS|dts)\b', re.IGNORECASE),
-        'mp3': re.compile(r'\b(?:MP3|mp3)\b', re.IGNORECASE),
-        'flac': re.compile(r'\b(?:FLAC|flac)\b', re.IGNORECASE),
-        'opus': re.compile(r'\b(?:OPUS|opus)\b', re.IGNORECASE),
-        'vorbis': re.compile(r'\b(?:VORBIS|vorbis|OGG|ogg)\b', re.IGNORECASE),
-        
-        # Audio channels
-        '2.0': re.compile(r'\b(?:2\.0|2ch|stereo)\b', re.IGNORECASE),
-        '5.1': re.compile(r'\b(?:5\.1|5ch)\b', re.IGNORECASE),
-        '7.1': re.compile(r'\b(?:7\.1|7ch)\b', re.IGNORECASE),
-        'mono': re.compile(r'\b(?:mono|1ch|1\.0)\b', re.IGNORECASE),
-        
-        # Audio quality indicators
-        'hq': re.compile(r'\b(?:HQ|hq|High[\s-]?Quality)\b', re.IGNORECASE),
-        'lq': re.compile(r'\b(?:LQ|lq|Low[\s-]?Quality)\b', re.IGNORECASE),
-        
-        # Dolby variants
-        'dolby': re.compile(r'\b(?:Dolby|DOLBY|DD|dd)\b', re.IGNORECASE),
-        'atmos': re.compile(r'\b(?:Atmos|ATMOS)\b', re.IGNORECASE),
+    """Extract audio information from filename, including languages and 'dual'/'multi'."""
+    audio_keywords = {
+        'Hindi': re.compile(r'Hindi', re.IGNORECASE),
+        'English': re.compile(r'English', re.IGNORECASE),
+        'Multi': re.compile(r'Multi(?:audio)?', re.IGNORECASE),
+        'Telugu': re.compile(r'Telugu', re.IGNORECASE),
+        'Tamil': re.compile(r'Tamil', re.IGNORECASE),
+        'Dual': re.compile(r'Dual(?:audio)?', re.IGNORECASE), 
+        # Add more specific codecs/channels if needed
+        'AAC': re.compile(r'AAC', re.IGNORECASE),
+        'AC3': re.compile(r'AC3', re.IGNORECASE),
+        'DTS': re.compile(r'DTS', re.IGNORECASE),
+        'MP3': re.compile(r'MP3', re.IGNORECASE),
+        '5.1': re.compile(r'5\.1', re.IGNORECASE),
+        '2.0': re.compile(r'2\.0', re.IGNORECASE),
     }
     
     detected_audio = []
     
-    for audio_type, pattern in audio_patterns.items():
-        if pattern.search(filename):
-            # Format: First letter capitalized, rest lowercase
-            formatted_audio_type = audio_type.capitalize()
-            # Prioritize language/type names over generic ones for cleaner output
-            if audio_type in ['hindi', 'english', 'multi', 'telugu', 'tamil', 'dual']:
-                detected_audio.insert(0, formatted_audio_type) # Add to beginning to prioritize
-            else:
-                detected_audio.append(formatted_audio_type)
+    # Check for 'Dual' first without strict word boundary if it's combined with quality
+    # This specifically addresses the '480pDUAL' case.
+    if re.search(r'pDual(?:audio)?', filename, re.IGNORECASE):
+        detected_audio.append("Dual")
+
+    # Prioritize language/type keywords (excluding 'Dual' which was handled above if combined)
+    priority_keywords = ['Hindi', 'English', 'Multi', 'Telugu', 'Tamil']
     
-    # Remove duplicates while preserving order (important after insert(0))
+    for keyword in priority_keywords:
+        if audio_keywords[keyword].search(filename):
+            detected_audio.append(keyword)
+            
+    # Also check for standalone 'Dual' if not already added
+    if "Dual" not in detected_audio and audio_keywords['Dual'].search(filename):
+        detected_audio.append("Dual")
+
+
+    # Add other codecs/channels if not already covered
+    for keyword, pattern in audio_keywords.items():
+        if keyword not in priority_keywords and keyword != 'Dual' and pattern.search(filename):
+            detected_audio.append(keyword)
+            
+    # Remove duplicates while preserving order
     detected_audio = list(dict.fromkeys(detected_audio))
     
     if detected_audio:
         return ' '.join(detected_audio)
-    
-    return 'Unknown' # Returns 'Unknown' if nothing specific is found
+        
+    return None # Return None if nothing specific is found
+
+def extract_quality(filename):
+    """Extract video quality from filename."""
+    patterns = [
+        re.compile(r'\b(4K|2K|2160p|1440p|1080p|720p|480p|360p)\b', re.IGNORECASE),
+        re.compile(r'\b(HD(?:RIP)?|WEB(?:-)?DL|BLURAY)\b', re.IGNORECASE), # e.g., HdRip, WEBDL
+        re.compile(r'\b(X264|X265|HEVC)\b', re.IGNORECASE), # Codecs as quality indicator
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, filename)
+        if match:
+            # Capitalize first letter for common formats, keep original for codecs
+            found_quality = match.group(1)
+            if found_quality.lower() in ["4k", "2k", "hdrip", "web-dl", "bluray"]:
+                return found_quality.upper() if found_quality.upper() in ["4K", "2K"] else found_quality.capitalize()
+            return found_quality # Return as found for codecs
+            
+    return None # Return None if no specific quality pattern is found
 
 # --- Enhanced filename generation with UUID for uniqueness ---
 def generate_unique_paths(renamed_file_name):
@@ -127,9 +158,13 @@ def generate_unique_paths(renamed_file_name):
     unique_id = str(uuid.uuid4())[:8]
     base_name, ext = os.path.splitext(renamed_file_name)
     
+    # Ensure extension starts with a dot if not present
+    if not ext.startswith('.'):
+        ext = '.' + ext if ext else ''
+    
     unique_file_name = f"{base_name}_{unique_id}{ext}"
-    renamed_file_path = f"downloads/{unique_file_name}"
-    metadata_file_path = f"Metadata/{unique_file_name}"
+    renamed_file_path = os.path.join("downloads", unique_file_name)
+    metadata_file_path = os.path.join("Metadata", unique_file_name)
     
     os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
     os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
@@ -150,6 +185,7 @@ async def start_sequence(client, message: Message):
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
+
     file_id = (
         message.document.file_id if message.document else
         message.video.file_id if message.video else
@@ -227,35 +263,6 @@ async def end_sequence(client, message: Message):
     except Exception as e:
         print(f"Error deleting messages: {e}")
 
-# Regex patterns for filename parsing
-pattern5 = re.compile(r'\b(?:.*?(\d{3}p|\d{3,4}[^\dp]*p).*?|.*?(\d{3}p|\d{3,4}p))\b', re.IGNORECASE)
-pattern6 = re.compile(r'[([<{]?\s*4k\s*[)\]>}]?', re.IGNORECASE)
-pattern7 = re.compile(r'[([<{]?\s*2k\s*[)\]>}]?', re.IGNORECASE)
-pattern8 = re.compile(r'[([<{]?\s*HdRip\s*[)\]>}]?|\bHdRip\b', re.IGNORECASE)
-pattern9 = re.compile(r'[([<{]?\s*4kX264\s*[)\]>}]?', re.IGNORECASE)
-pattern10 = re.compile(r'[([<{]?\s*4kx265\s*[)\]>}]?', re.IGNORECASE)
-
-def extract_quality(filename):
-    match5 = re.search(pattern5, filename)
-    if match5:
-        return match5.group(1) or match5.group(2)
-    match6 = re.search(pattern6, filename)
-    if match6:
-        return "4k"
-    match7 = re.search(pattern7, filename)
-    if match7:
-        return "2k"
-    match8 = re.search(pattern8, filename)
-    if match8:
-        return "HdRip"
-    match9 = re.search(pattern9, filename)
-    if match9:
-        return "4kX264"
-    match10 = re.search(pattern10, filename)
-    if match10:
-        return "4kx265"
-    return "Unknown"
-
 async def process_thumb_async(ph_path):
     """Process thumbnail in thread pool to avoid blocking"""
     def _resize_thumb(path):
@@ -277,7 +284,7 @@ async def run_ffmpeg_async(metadata_command):
                 text=True
             )
             return result.returncode, result.stdout, result.stderr
-        
+            
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(thread_pool, _run_ffmpeg)
 
@@ -314,7 +321,7 @@ async def concurrent_upload(client, message, path, media_type, caption, ph_path,
                     video=path,
                     caption=caption,
                     thumb=ph_path,
-                    duration=0,
+                    duration=0, # Pyrogram will automatically calculate duration
                     progress=progress_for_pyrogram,
                     progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", progress_msg, time.time()),
                 )
@@ -324,7 +331,7 @@ async def concurrent_upload(client, message, path, media_type, caption, ph_path,
                     audio=path,
                     caption=caption,
                     thumb=ph_path,
-                    duration=0,
+                    duration=0, # Pyrogram will automatically calculate duration
                     progress=progress_for_pyrogram,
                     progress_args=("Uᴘʟᴏᴀᴅ sᴛᴀʀᴛᴇᴅ ᴅᴜᴅᴇ...!!", progress_msg, time.time()),
                 )
@@ -358,10 +365,12 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 return
 
             media_type = media_preference or "document"
-            if file_name.endswith(".mp4"):
+            # Auto-detect media type based on extension if not explicitly set by user preference
+            if file_name.endswith((".mp4", ".mkv", ".avi", ".webm")):
                 media_type = "video"
-            elif file_name.endswith(".mp3"):
+            elif file_name.endswith((".mp3", ".flac", ".wav", ".ogg")):
                 media_type = "audio"
+            # Otherwise, it defaults to "document"
 
             # NSFW check
             if await check_anti_nsfw(file_name, message):
@@ -371,84 +380,86 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # Extract information from filename
             episode_number = extract_episode_number(file_name)
             season_number = extract_season_number(file_name)
-            audio_info_extracted = extract_audio_info(file_name) 
-            
+            audio_info_extracted = extract_audio_info(file_name)  
+            quality_extracted = extract_quality(file_name)
+
             print(f"Extracted Episode Number: {episode_number}")
             print(f"Extracted Season Number: {season_number}")
             print(f"Extracted Audio Info: {audio_info_extracted}")
+            print(f"Extracted Quality: {quality_extracted}")
 
-            # Process template with all placeholders
             template = format_template
             
-            # --- Season Placeholder Replacement ---
+            # --- Placeholder Replacement Logic ---
+            
+            # 1. Specific 'SSeason' placeholder handling
             season_value_formatted = str(season_number).zfill(2) if season_number is not None else ""
-            
-            # 1. Handle specific literal placeholder 'SSeason'
             if "SSeason" in template:
-                template = template.replace("SSeason", f"S{season_value_formatted}" if season_value_formatted else "")
-            
-            # 2. Handle generic season placeholders (e.g., [season], {season}, season)
-            season_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Season|SEASON|season|S)\s*(\]|\})?', re.IGNORECASE)
-            def season_replacer(match):
-                open_bracket = match.group(1) or ''
-                close_bracket = match.group(2) or ''
                 if season_value_formatted:
-                    return f"{open_bracket}{season_value_formatted}{close_bracket}"
+                    template = template.replace("SSeason", f"S{season_value_formatted}")
                 else:
-                    return "" # Remove placeholder including brackets if season not found
-            template = season_placeholder_regex.sub(season_replacer, template)
+                    template = template.replace("SSeason", "") # Remove SSeason if no season found
 
-
-            # --- Episode Placeholder Replacement ---
+            # 2. Specific 'EP{episode}' placeholder handling
             episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else ""
-            
-            # 1. Handle specific literal placeholder 'EP{episode}'
             if "EP{episode}" in template:
-                template = template.replace("EP{episode}", f"EP{episode_value_formatted}" if episode_value_formatted else "")
-
-            # 2. Handle generic episode placeholders (e.g., [episode], {episode}, episode, EP)
-            episode_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Episode|EPISODE|episode|EP)\s*(\]|\})?', re.IGNORECASE)
-            def episode_replacer(match):
-                open_bracket = match.group(1) or ''
-                close_bracket = match.group(2) or ''
                 if episode_value_formatted:
-                    return f"{open_bracket}{episode_value_formatted}{close_bracket}"
+                    template = template.replace("EP{episode}", f"EP{episode_value_formatted}")
                 else:
-                    return "" # Remove placeholder including brackets if episode not found
-            template = episode_placeholder_regex.sub(episode_replacer, template)
+                    template = template.replace("EP{episode}", "") # Remove EP{episode} if no episode found
 
-            
-            # --- Audio placeholder replacement ---
-            replacement_audio = audio_info_extracted if audio_info_extracted and audio_info_extracted != "Unknown" else ""
-
-            # Regex to match [audio], {audio}, or audio (case-insensitive, with optional leading/trailing spaces)
-            # and capture the surrounding brackets if they exist.
-            audio_placeholder_regex = re.compile(r'(\[|\{)?\s*(?:Audio|AUDIO|audio)\s*(\]|\})?', re.IGNORECASE)
-
-            # Define a replacer function
-            def audio_replacer(match):
-                open_bracket = match.group(1) or ''
-                close_bracket = match.group(2) or ''
-                
-                if replacement_audio:
-                    # If audio info exists, insert it within the original brackets or just the text if no brackets
-                    return f"{open_bracket}{replacement_audio}{close_bracket}"
+            # 3. Generic Season placeholder replacement (only for {season} or bare season)
+            # This regex now specifically matches "{Season}" or "Season" (case-insensitive) as a whole word.
+            season_generic_placeholder_regex = re.compile(r'\b(?:\{Season\}|Season)\b', re.IGNORECASE)
+            def season_generic_replacer(match):
+                if season_value_formatted:
+                    return f"{season_value_formatted}"
                 else:
-                    # If no audio info, remove the entire placeholder including brackets
+                    return "" 
+            template = season_generic_placeholder_regex.sub(season_generic_replacer, template)
+
+            # 4. Generic Episode placeholder replacement (only for {episode} or bare episode)
+            # This regex now specifically matches "{Episode}" or "Episode" (case-insensitive) as a whole word.
+            episode_generic_placeholder_regex = re.compile(r'\b(?:\{Episode\}|Episode)\b', re.IGNORECASE)
+            def episode_generic_replacer(match):
+                if episode_value_formatted:
+                    return f"{episode_value_formatted}"
+                else:
                     return ""
-            
+            template = episode_generic_placeholder_regex.sub(episode_generic_replacer, template)
+
+            # 5. Audio placeholder replacement (only for {audio} or bare audio)
+            # This regex now specifically matches "{Audio}" or "Audio" (case-insensitive) as a whole word.
+            replacement_audio = audio_info_extracted if audio_info_extracted else ""
+            audio_placeholder_regex = re.compile(r'\b(?:\{Audio\}|Audio)\b', re.IGNORECASE)
+            def audio_replacer(match):
+                if replacement_audio:
+                    return f"{replacement_audio}"
+                else:
+                    return ""
             template = audio_placeholder_regex.sub(audio_replacer, template)
 
-            # Quality placeholders
-            quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
-            for quality_placeholder in quality_placeholders:
-                # Use regex to replace all occurrences of the placeholder,
-                # considering it might be enclosed in brackets like [quality] or {quality}
-                template = re.sub(r'(\[|\{)?' + re.escape(quality_placeholder) + r'(\]|\})?', 
-                                  lambda m: f"{m.group(1) or ''}{extract_quality(file_name)}{m.group(2) or ''}", 
-                                  template, flags=re.IGNORECASE)
+            # 6. Quality placeholder replacement (only for {quality} or bare quality)
+            # This regex now specifically matches "{Quality}" or "Quality" (case-insensitive) as a whole word.
+            replacement_quality = quality_extracted if quality_extracted else ""
+            quality_placeholder_regex = re.compile(r'\b(?:\{Quality\}|Quality)\b', re.IGNORECASE)
+            def quality_replacer(match):
+                if replacement_quality:
+                    return f"{replacement_quality}"
+                else:
+                    return ""
+            template = quality_placeholder_regex.sub(quality_replacer, template)
+
+            # Clean up extra spaces or hyphens left by removed placeholders
+            template = re.sub(r'\s{2,}', ' ', template) # Replace multiple spaces with a single space
+            template = re.sub(r'\[\s*-\s*\]', '', template) # Remove empty bracket hyphen like "[ - ]"
+            template = template.strip() # Remove leading/trailing whitespace
 
             _, file_extension = os.path.splitext(file_name)
+            # Ensure the extension starts with a dot
+            if not file_extension.startswith('.'):
+                file_extension = '.' + file_extension if file_extension else ''
+            
             renamed_file_name = f"{template}{file_extension}"
             
             # Generate unique paths to avoid conflicts
@@ -457,7 +468,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # Start download with status message
             download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
-            ph_path = None
+            ph_path = None # Initialize ph_path
 
             try:
                 # Concurrent download
@@ -508,7 +519,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     c_caption.format(
                         filename=renamed_file_name,  # Use original renamed name, not unique
                         filesize=humanbytes(message.document.file_size) if message.document else "Unknown",
-                        duration=convert(0),
+                        duration=convert(0), # Duration will be auto-calculated by Pyrogram on upload
                     )
                     if c_caption
                     else f"{renamed_file_name}"
@@ -543,8 +554,9 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     if file_path and os.path.exists(file_path):
                         try:
                             os.remove(file_path)
-                        except:
-                            pass
+                        except Exception as cleanup_e:
+                            print(f"Error during file cleanup for {file_path}: {cleanup_e}")
+                            pass # Log error but don't stop process
                 
                 # Remove from operations tracking
                 if file_id in renaming_operations:
@@ -553,7 +565,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
         except Exception as e:
             if 'file_id' in locals() and file_id in renaming_operations:
                 del renaming_operations[file_id]
-            print(f"Concurrent rename error: {e}")
+            print(f"Concurrent rename outer error: {e}")
 
 # Keep the original function for sequence mode (it now calls the concurrent one)
 async def auto_rename_file(client, message, file_info, is_sequence=False, status_msg=None):
