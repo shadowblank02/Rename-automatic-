@@ -218,7 +218,7 @@ async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
         await message.reply_text("Wʜᴀᴛ ᴀʀᴇ ʏᴏᴜ ᴅᴏɪɴɢ ɴᴏ ᴀᴄᴛɪᴠᴇ sᴇǫᴜᴇɴᴄᴇ ғᴏᴜɴᴅ...!!")
-        return
+    return
 
     file_list = active_sequences.pop(user_id, [])
     delete_messages = message_ids.pop(user_id, [])
@@ -364,13 +364,23 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 await message.reply_text("Pʟᴇᴀsᴇ Sᴇᴛ Aɴ Aᴜᴛᴏ Rᴇɴᴀᴍᴇ Fᴏʀᴍᴀᴛ Fɪʀsᴛ Usɪɴɢ /autorename")
                 return
 
-            media_type = media_preference or "document"
-            # Auto-detect media type based on extension if not explicitly set by user preference
-            if file_name.endswith((".mp4", ".mkv", ".avi", ".webm")):
-                media_type = "video"
-            elif file_name.endswith((".mp3", ".flac", ".wav", ".ogg")):
-                media_type = "audio"
-            # Otherwise, it defaults to "document"
+            # --- START FIX: Prioritize media_preference for media_type (already applied) ---
+            media_type = media_preference # Get user's preference first
+
+            # Only auto-detect if user has NOT explicitly set a media preference
+            if not media_type: # If media_preference was None or empty
+                if file_name.endswith((".mp4", ".mkv", ".avi", ".webm")):
+                    media_type = "video"
+                elif file_name.endswith((".mp3", ".flac", ".wav", ".ogg")):
+                    media_type = "audio"
+                else:
+                    media_type = "document" # Default to document if no preference and no auto-detection match
+            
+            # Ensure media_type is set, even if preference exists but is invalid/empty string
+            if not media_type:
+                media_type = "document" # Fallback if media_preference was an empty string or other Falsy value
+            # --- END FIX ---
+
 
             # NSFW check
             if await check_anti_nsfw(file_name, message):
@@ -429,26 +439,35 @@ async def auto_rename_file_concurrent(client, message, file_info):
             template = episode_generic_placeholder_regex.sub(episode_generic_replacer, template)
 
             # 5. Audio placeholder replacement (only for {audio} or bare audio)
-            # This regex now specifically matches "{Audio}" or "Audio" (case-insensitive) as a whole word.
+            # This regex now specifically matches "{Audio}" or "Audio}" (case-insensitive) as a whole word.
             replacement_audio = audio_info_extracted if audio_info_extracted else ""
-            audio_placeholder_regex = re.compile(r'\b(?:\{Audio\}|Audio)\b', re.IGNORECASE)
+            audio_placeholder_regex = re.compile(r'\[?\b(?:\{Audio\}|Audio)\b\]?', re.IGNORECASE) # Modified regex to include optional brackets
             def audio_replacer(match):
                 if replacement_audio:
-                    return f"{replacement_audio}"
+                    # If the matched string included brackets, keep them, otherwise just return the audio
+                    if match.group(0).startswith('[') and match.group(0).endswith(']'):
+                        return f"[{replacement_audio}]"
+                    return replacement_audio
                 else:
-                    return ""
+                    return "" # If no audio, remove the placeholder (and its brackets if matched)
             template = audio_placeholder_regex.sub(audio_replacer, template)
 
-            # 6. Quality placeholder replacement (only for {quality} or bare quality)
-            # This regex now specifically matches "{Quality}" or "Quality" (case-insensitive) as a whole word.
+            # --- START FIX: Quality placeholder replacement to handle empty values gracefully ---
+            # This regex specifically matches "[{Quality}]" or "[Quality]" including the brackets
+            # Or just "{Quality}" or "Quality" if brackets are not part of the template.
+            # We'll handle the brackets in the replacer function.
             replacement_quality = quality_extracted if quality_extracted else ""
-            quality_placeholder_regex = re.compile(r'\b(?:\{Quality\}|Quality)\b', re.IGNORECASE)
-            def quality_replacer(match):
+            quality_placeholder_regex = re.compile(r'\[?\b(?:\{Quality\}|Quality)\b\]?', re.IGNORECASE) # Modified regex to include optional brackets
+            def quality_replacer_fixed(match):
                 if replacement_quality:
-                    return f"{replacement_quality}"
+                    # If the matched string included brackets, keep them, otherwise just return the quality
+                    if match.group(0).startswith('[') and match.group(0).endswith(']'):
+                        return f"[{replacement_quality}]"
+                    return replacement_quality
                 else:
-                    return ""
-            template = quality_placeholder_regex.sub(quality_replacer, template)
+                    return "" # If no quality, remove the placeholder (and its brackets if matched)
+            template = quality_placeholder_regex.sub(quality_replacer_fixed, template)
+            # --- END FIX ---
 
             # Clean up extra spaces or hyphens left by removed placeholders
             template = re.sub(r'\s{2,}', ' ', template) # Replace multiple spaces with a single space
