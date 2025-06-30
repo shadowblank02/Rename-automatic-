@@ -41,8 +41,10 @@ def extract_episode_number(filename):
     patterns = [
         # S01E01, S01.EP01, S01-E01 (S then optional separator then E/EP and digits)
         re.compile(r'S\d+(?:[.-]?|_)?[EePp](\d+)', re.IGNORECASE),
-        # E01, EP01 (E/EP then digits, standalone or in brackets)
-        re.compile(r'(?:[EePp])(\d+)', re.IGNORECASE),
+        # E01, EP01, [E01], [EP01], (E01), (EP01) - more robust for standalone E/EP
+        re.compile(r'(?:[\[(]?[EePp])(\d+)[\])]?', re.IGNORECASE),
+        # Episode 01, EPISODE 01, [Episode 01]
+        re.compile(r'(?:[\[(]?Episode[\s._-]*|[\[(]?EP[\s._-]*)(?:\s*)?(\d+)[\])]?', re.IGNORECASE),
         # Simple digit after common separators for episodes (e.g., - 01)
         re.compile(r'[\s._-][EePp]?(\d+)(?:\s|\.|$)', re.IGNORECASE),
         # Matches "1 of 10" or similar episode count structures
@@ -53,10 +55,12 @@ def extract_episode_number(filename):
         match = re.search(pattern, filename)
         if match:
             try:
+                # print(f"DEBUG: Episode match found: {match.group(0)} -> {match.group(1)}") # Debugging
                 return int(match.group(1))
             except ValueError:
                 continue # Skip if conversion fails
             
+    # print(f"DEBUG: No episode found in {filename}") # Debugging
     return None # Return None if no specific episode pattern is found
 
 def extract_season_number(filename):
@@ -67,20 +71,22 @@ def extract_season_number(filename):
     season_patterns = [
         # S01E01, S01.EP01, S01-E01 (S and digits then optional separator then E/EP and digits)
         re.compile(r'S(\d+)(?:[.-]?|_)?[EePp]\d+', re.IGNORECASE),
-        # Season 1, Season 01
-        re.compile(r'Season\s*(\d+)', re.IGNORECASE),
-        # S1, S01 (standalone, followed by non-digit or end of string)
-        re.compile(r'\bS(\d+)(?:\D|$)', re.IGNORECASE), 
+        # Season 1, Season 01, [Season 1], (Season 01) - more robust for standalone Season
+        re.compile(r'(?:[\[(]?Season[\s._-]*|[\[(]?S[\s._-]*)(?:\s*)?(\d+)[\])]?', re.IGNORECASE),
+        # S1, S01 (standalone, followed by non-digit or end of string) - make more generic
+        re.compile(r'\bS(\d+)(?:\b|(?=[._-]\d+))', re.IGNORECASE), # Matches S1.something, S01-something
     ]
     
     for pattern in season_patterns:
         match = re.search(pattern, filename)
         if match:
             try:
+                # print(f"DEBUG: Season match found: {match.group(0)} -> {match.group(1)}") # Debugging
                 return int(match.group(1))
             except ValueError:
                 continue # Skip if conversion fails
             
+    # print(f"DEBUG: No season found in {filename}") # Debugging
     return None # Return None if no specific season pattern is found
 
 def extract_audio_info(filename):
@@ -226,7 +232,7 @@ async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
         await message.reply_text("Wʜᴀᴛ ᴀʀᴇ ʏᴏᴜ ᴅᴏɪɴɢ ɴᴏ ᴀᴄᴛɪᴠᴇ sᴇǫᴜᴇɴᴄᴇ ғᴏᴜɴᴅ...!!")
-    return
+        return # Added return to prevent further execution if no sequence
 
     file_list = active_sequences.pop(user_id, [])
     delete_messages = message_ids.pop(user_id, [])
@@ -242,22 +248,25 @@ async def end_sequence(client, message: Message):
             try:
                 await asyncio.sleep(0.5)
                 
-                if file_info["message"].document:
+                # Retrieve original message from file_info to get media object
+                original_message = file_info["message"]
+                
+                if original_message.document:
                     await client.send_document(
                         message.chat.id,
-                        file_info["file_id"],
-                        caption=f"{file_info['file_name']}"
+                        original_message.document.file_id,
+                        caption=f"{file_info['file_name']}" # Use original file_name for sequence output
                     )
-                elif file_info["message"].video:
+                elif original_message.video:
                     await client.send_video(
                         message.chat.id,
-                        file_info["file_id"],
+                        original_message.video.file_id,
                         caption=f"{file_info['file_name']}"
                     )
-                elif file_info["message"].audio:
+                elif original_message.audio:
                     await client.send_audio(
                         message.chat.id,
-                        file_info["file_id"],
+                        original_message.audio.file_id,
                         caption=f"{file_info['file_name']}"
                     )
                 
@@ -408,18 +417,22 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
             template = format_template
             
-            # --- Placeholder Replacement Logic ---
+            # --- Placeholder Replacement Logic (Revised Order and Regexes) ---
             
-            # Use None to distinguish no extraction vs empty string
+            # Format extracted values to two digits (e.g., 1 -> 01)
             season_value_formatted = str(season_number).zfill(2) if season_number is not None else None 
             episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else None 
 
-            # 1. Combined SSeason and EP{episode} placeholder handling
+            # 1. Combined SSeason and EP{episode} placeholder handling (Most specific first)
             # This regex will look for the pattern [SSeason -EP{episode}] or variations
-            # and capture the parts inside the brackets.
-            season_episode_block_regex = re.compile(r'\[\s*SSeason\s*-\s*EP\{episode\}\s*\]', re.IGNORECASE)
+            # It matches the entire block, including the literal "SSeason", "-EP" and "{episode}".
+            # We capture the optional brackets.
+            season_episode_block_regex = re.compile(r'(\[?\s*SSeason\s*-\s*EP\{episode\}\s*\]?)', re.IGNORECASE)
 
             def season_episode_replacer(match):
+                # Check if the matched string started with '[' to preserve brackets
+                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
+
                 season_part = ""
                 episode_part = ""
 
@@ -430,67 +443,72 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     episode_part = f"EP{episode_value_formatted}"
 
                 if season_part and episode_part:
-                    return f"[{season_part} -{episode_part}]"
+                    return f"[{season_part} -{episode_part}]" if has_brackets else f"{season_part}-{episode_part}"
                 elif season_part: # Only season found
-                    return f"[{season_part}]"
+                    return f"[{season_part}]" if has_brackets else season_part
                 elif episode_part: # Only episode found
-                    return f"[{episode_part}]"
-                else: # Neither found, remove the whole block
+                    return f"[{episode_part}]" if has_brackets else episode_part
+                else: # Neither found, remove the whole block or placeholder
                     return ""
             
             template = season_episode_block_regex.sub(season_episode_replacer, template)
 
 
-            # 2. Generic Season placeholder replacement (only for {season} or bare season)
-            # This regex now specifically matches "{Season}" or "Season" (case-insensitive) as a whole word.
-            season_generic_placeholder_regex = re.compile(r'\b(?:\{Season\}|Season)\b', re.IGNORECASE)
+            # 2. Generic Season placeholder replacement (e.g., {Season} or Season)
+            # This regex now specifically matches "{Season}" or "Season" as a whole word.
+            # We capture potential brackets if they are around the placeholder, so we can preserve them.
+            season_generic_placeholder_regex = re.compile(r'(\[?\{?Season\}?\]?)', re.IGNORECASE) # Matches [{Season}] or {Season} or [Season] or Season
+
             def season_generic_replacer(match):
+                # Check if the original match included brackets.
+                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
+                
                 if season_value_formatted:
-                    return f"{season_value_formatted}"
+                    return f"[{season_value_formatted}]" if has_brackets else season_value_formatted
                 else:
                     return "" 
             template = season_generic_placeholder_regex.sub(season_generic_replacer, template)
 
-            # 3. Generic Episode placeholder replacement (only for {episode} or bare episode)
-            # This regex now specifically matches "{Episode}" or "Episode" (case-insensitive) as a whole word.
-            episode_generic_placeholder_regex = re.compile(r'\b(?:\{Episode\}|Episode)\b', re.IGNORECASE)
+            # 3. Generic Episode placeholder replacement (e.g., {episode} or episode)
+            # Same logic as Season, capturing potential brackets.
+            episode_generic_placeholder_regex = re.compile(r'(\[?\{?episode\}?\]?)', re.IGNORECASE) # Matches [{episode}] or {episode} or [episode] or episode
             def episode_generic_replacer(match):
+                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
+
                 if episode_value_formatted:
-                    return f"{episode_value_formatted}"
+                    return f"[{episode_value_formatted}]" if has_brackets else episode_value_formatted
                 else:
                     return ""
             template = episode_generic_placeholder_regex.sub(episode_generic_replacer, template)
 
-            # 4. Audio placeholder replacement (only for {audio} or bare audio)
-            # This regex now specifically matches "{Audio}" or "Audio}" (case-insensitive) as a whole word.
+            # 4. Audio placeholder replacement (e.g., {audio} or [Audio])
             replacement_audio = audio_info_extracted if audio_info_extracted else ""
-            audio_placeholder_regex = re.compile(r'\[?\b(?:\{Audio\}|Audio)\b\]?', re.IGNORECASE) # Modified regex to include optional brackets
+            # This regex needs to capture the *entire* match to determine if brackets were present.
+            audio_placeholder_regex = re.compile(r'(\[?\{?Audio\}?\]?)', re.IGNORECASE) # Matches [{Audio}] or {Audio} or [Audio] or Audio
+
             def audio_replacer(match):
+                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
+                
                 if replacement_audio:
-                    # If the matched string included brackets, keep them, otherwise just return the audio
-                    if match.group(0).startswith('[') and match.group(0).endswith(']'):
-                        return f"[{replacement_audio}]"
-                    return replacement_audio
+                    return f"[{replacement_audio}]" if has_brackets else replacement_audio
                 else:
                     return "" # If no audio, remove the placeholder (and its brackets if matched)
             template = audio_placeholder_regex.sub(audio_replacer, template)
 
-            # --- START FIX: Quality placeholder replacement to handle empty values gracefully ---
-            # This regex specifically matches "[{Quality}]" or "[Quality]" including the brackets
-            # Or just "{Quality}" or "Quality" if brackets are not part of the template.
-            # We'll handle the brackets in the replacer function.
+            # 5. Quality placeholder replacement (e.g., {Quality} or [Quality])
             replacement_quality = quality_extracted if quality_extracted else ""
-            quality_placeholder_regex = re.compile(r'\[?\b(?:\{Quality\}|Quality)\b\]?', re.IGNORECASE) # Modified regex to include optional brackets
+            # This regex needs to capture the *entire* match to determine if brackets were present.
+            quality_placeholder_regex = re.compile(r'(\[?\{?Quality\}?\]?)', re.IGNORECASE) # Matches [{Quality}] or {Quality} or [Quality] or Quality
+
             def quality_replacer_fixed(match):
+                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
+
                 if replacement_quality:
-                    # If the matched string included brackets, keep them, otherwise just return the quality
-                    if match.group(0).startswith('[') and match.group(0).endswith(']'):
-                        return f"[{replacement_quality}]"
-                    return replacement_quality
+                    return f"[{replacement_quality}]" if has_brackets else replacement_quality
                 else:
                     return "" # If no quality, remove the placeholder (and its brackets if matched)
             template = quality_placeholder_regex.sub(quality_replacer_fixed, template)
-            # --- END FIX ---
+            # --- END Revised Placeholder Logic ---
 
             # Clean up extra spaces or hyphens left by removed placeholders
             template = re.sub(r'\s{2,}', ' ', template) # Replace multiple spaces with a single space
@@ -551,7 +569,7 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
                 path = metadata_file_path
 
-                await download_msg.edit("Wᴇᴡ... Iᴀᴍ Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
+                await download_msg.edit("Wᴇᴡ... Iᴀm Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
                 # Prepare caption and thumbnail
                 c_caption = await codeflixbots.get_caption(message.chat.id)
