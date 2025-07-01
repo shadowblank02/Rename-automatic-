@@ -51,14 +51,19 @@ def extract_episode_number(filename):
         re.compile(r'\b(\d+)\s*of\s*\d+\b', re.IGNORECASE),
     ]
     
-    for pattern in patterns:
+    print(f"DEBUG: Attempting to extract episode from: '{filename}'") # Debug print
+    for i, pattern in enumerate(patterns):
         match = re.search(pattern, filename)
         if match:
             try:
-                return int(match.group(1))
+                extracted_episode = int(match.group(1))
+                print(f"DEBUG: Episode Pattern {i+1} ('{pattern.pattern}') matched '{match.group(0)}', extracted episode: {extracted_episode}") # Debug print
+                return extracted_episode
             except ValueError:
+                print(f"DEBUG: Episode Pattern {i+1} matched but could not convert to int: '{match.group(1)}'") # Debug print
                 continue 
             
+    print(f"DEBUG: No episode number extracted for: '{filename}'") # Debug print
     return None 
 
 def extract_season_number(filename):
@@ -76,14 +81,19 @@ def extract_season_number(filename):
         re.compile(r'[._-]S(\d+)(?:[._-]|$)', re.IGNORECASE) # Matches ".S1." or "-S01-" or "S01" at end (e.g., "Show.Name.S01.mkv")
     ]
     
-    for pattern in season_patterns:
+    print(f"DEBUG: Attempting to extract season from: '{filename}'") # Debug print
+    for i, pattern in enumerate(season_patterns):
         match = re.search(pattern, filename)
         if match:
             try:
-                return int(match.group(1))
+                extracted_season = int(match.group(1))
+                print(f"DEBUG: Season Pattern {i+1} ('{pattern.pattern}') matched '{match.group(0)}', extracted season: {extracted_season}") # Debug print
+                return extracted_season
             except ValueError:
+                print(f"DEBUG: Season Pattern {i+1} matched but could not convert to int: '{match.group(1)}'") # Debug print
                 continue 
             
+    print(f"DEBUG: No season number extracted for: '{filename}'") # Debug print
     return None 
 
 def extract_audio_info(filename):
@@ -434,8 +444,6 @@ async def auto_rename_file_concurrent(client, message, file_info):
             replacement_audio = audio_info_extracted if audio_info_extracted else ""
 
             def audio_replacer_new(match):
-                # Replace with extracted value, or empty string if not found
-                # This function now correctly handles [Audio] being matched by the regex
                 return replacement_audio 
             template = audio_placeholder_regex.sub(audio_replacer_new, template)
 
@@ -445,8 +453,6 @@ async def auto_rename_file_concurrent(client, message, file_info):
             replacement_quality = quality_extracted if quality_extracted else ""
 
             def quality_replacer_new(match):
-                # Replace with extracted value, or empty string if not found
-                # This function now correctly handles [Quality] being matched by the regex
                 return replacement_quality 
             template = quality_placeholder_regex.sub(quality_replacer_new, template)
 
