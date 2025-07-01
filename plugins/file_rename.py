@@ -35,66 +35,84 @@ def detect_quality(file_name):
 
 def extract_episode_number(filename):
     """
-    Extracts episode number from filename.
-    Prioritizes specific patterns (SXXEXX, EXX) to avoid misidentification.
+    Enhanced episode extraction with better pattern matching and validation.
     """
+    if not filename:
+        return None
+        
+    print(f"DEBUG: Extracting episode from: '{filename}'")
+    
     patterns = [
-        # S01E01, S01.EP01, S01-E01 (S then optional separator then E/EP and digits)
-        re.compile(r'S\d+(?:[.-]?|_)?[EePp](\d+)', re.IGNORECASE),
-        # E01, EP01, [E01], (E01) - more robust for standalone E/EP, bounded to prevent partial matches
-        re.compile(r'(?:[\[(]?|\b)(?:[EePp])(\d+)(?:[\])]?|\b)', re.IGNORECASE),
-        # Episode 01, EPISODE 01, [Episode 01]
-        re.compile(r'(?:[\[(]?Episode[\s._-]*|[\[(]?EP[\s._-]*)(?:\s*)?(\d+)[\])]?', re.IGNORECASE),
-        # Simple digit after common separators for episodes (e.g., - 01), ensuring it's not a year or other number
-        re.compile(r'(?:[\s._-][EePp]?|\b)(\d+)(?:\s|\.|$)', re.IGNORECASE),
-        # Matches "1 of 10" or similar episode count structures
+        # Pattern 1: S##E## format (most reliable)
+        re.compile(r'S\d+[.-_]?E(\d+)', re.IGNORECASE),
+        # Pattern 2: Episode XX, EP XX formats  
+        re.compile(r'(?:Episode|EP)[\s._-]*(\d+)', re.IGNORECASE),
+        # Pattern 3: E## standalone (with word boundaries)
+        re.compile(r'\bE(\d+)\b', re.IGNORECASE),
+        # Pattern 4: [E##] or (E##) format
+        re.compile(r'[\[\(]E(\d+)[\]\)]', re.IGNORECASE),
+        # Pattern 5: X of Y format
         re.compile(r'\b(\d+)\s*of\s*\d+\b', re.IGNORECASE),
+        # Pattern 6: Three digit numbers (likely episodes 001-999)
+        re.compile(r'(?:^|[^0-9])(\d{3})(?:[^0-9]|$)', re.IGNORECASE),
+        # Pattern 7: Two digit numbers in specific contexts
+        re.compile(r'(?:[\s._-]|^)(\d{2})(?:[\s._-]|$)', re.IGNORECASE),
+        # Pattern 8: Single digits with separators
+        re.compile(r'(?:[\s._-])(\d{1})(?:[\s._-]|$)', re.IGNORECASE),
     ]
     
-    print(f"DEBUG: Attempting to extract episode from: '{filename}'") # Debug print
     for i, pattern in enumerate(patterns):
-        match = re.search(pattern, filename)
-        if match:
-            try:
-                extracted_episode = int(match.group(1))
-                print(f"DEBUG: Episode Pattern {i+1} ('{pattern.pattern}') matched '{match.group(0)}', extracted episode: {extracted_episode}") # Debug print
-                return extracted_episode
-            except ValueError:
-                print(f"DEBUG: Episode Pattern {i+1} matched but could not convert to int: '{match.group(1)}'") # Debug print
-                continue 
-            
-    print(f"DEBUG: No episode number extracted for: '{filename}'") # Debug print
-    return None 
+        matches = pattern.findall(filename)
+        if matches:
+            for match in matches:
+                try:
+                    episode_num = int(match)
+                    # Validate episode number (should be reasonable)
+                    if 1 <= episode_num <= 9999:
+                        print(f"DEBUG: Episode Pattern {i+1} found episode: {episode_num}")
+                        return episode_num
+                except ValueError:
+                    continue
+    
+    print(f"DEBUG: No episode number found in: '{filename}'")
+    return None
 
 def extract_season_number(filename):
     """
-    Extracts season number from filename.
-    Prioritizes specific patterns (SXXEXX, Season XX, SXX).
+    Enhanced season extraction with better pattern matching and validation.
     """
-    season_patterns = [
-        # S01E01, S01.EP01, S01-E01 (S and digits then optional separator then E/EP and digits)
-        re.compile(r'S(\d+)(?:[.-]?|_)?[EePp]\d+', re.IGNORECASE),
-        # Season 1, Season 01, [Season 1], (Season 01) - more robust for standalone Season
-        re.compile(r'(?:[\[(]?Season[\s._-]*|[\[(]?S[\s._-]*)(?:\s*)?(\d+)[\])]?', re.IGNORECASE),
-        # S1, S01 (standalone, using more reliable word boundaries or separators)
-        re.compile(r'\bS(\d+)\b', re.IGNORECASE), # Matches S1, S01 as whole words (e.g., "Show.S01.mkv")
-        re.compile(r'[._-]S(\d+)(?:[._-]|$)', re.IGNORECASE) # Matches ".S1." or "-S01-" or "S01" at end (e.g., "Show.Name.S01.mkv")
+    if not filename:
+        return None
+        
+    print(f"DEBUG: Extracting season from: '{filename}'")
+    
+    patterns = [
+        # Pattern 1: S##E## format (extract season part)
+        re.compile(r'S(\d+)[._-]?E\d+', re.IGNORECASE),
+        # Pattern 2: Season XX formats
+        re.compile(r'Season[\s._-]*(\d+)', re.IGNORECASE),
+        # Pattern 3: S## standalone (with boundaries)
+        re.compile(r'\bS(\d+)\b', re.IGNORECASE),
+        # Pattern 4: [S##] or (S##) format
+        re.compile(r'[\[\(]S(\d+)[\]\)]', re.IGNORECASE),
+        # Pattern 5: Season with separators
+        re.compile(r'[._-]S(\d+)(?:[._-]|$)', re.IGNORECASE),
     ]
     
-    print(f"DEBUG: Attempting to extract season from: '{filename}'") # Debug print
-    for i, pattern in enumerate(season_patterns):
-        match = re.search(pattern, filename)
+    for i, pattern in enumerate(patterns):
+        match = pattern.search(filename)
         if match:
             try:
-                extracted_season = int(match.group(1))
-                print(f"DEBUG: Season Pattern {i+1} ('{pattern.pattern}') matched '{match.group(0)}', extracted season: {extracted_season}") # Debug print
-                return extracted_season
+                season_num = int(match.group(1))
+                # Validate season number (should be reasonable)
+                if 1 <= season_num <= 99:
+                    print(f"DEBUG: Season Pattern {i+1} found season: {season_num}")
+                    return season_num
             except ValueError:
-                print(f"DEBUG: Season Pattern {i+1} matched but could not convert to int: '{match.group(1)}'") # Debug print
-                continue 
-            
-    print(f"DEBUG: No season number extracted for: '{filename}'") # Debug print
-    return None 
+                continue
+    
+    print(f"DEBUG: No season number found in: '{filename}'")
+    return None
 
 def extract_audio_info(filename):
     """Extract audio information from filename, including languages and 'dual'/'multi'."""
@@ -346,8 +364,8 @@ async def concurrent_upload(client, message, path, media_type, caption, ph_path,
 
 async def auto_rename_file_concurrent(client, message, file_info):
     """
-    MAIN CONCURRENT FUNCTION - Uses semaphores and thread pools for true concurrency
-    Enhanced with season and audio extraction
+    MAIN CONCURRENT FUNCTION - Enhanced with better episode/season extraction
+    and proper placeholder handling
     """
     async with processing_semaphore:  # Limit overall concurrent processing
         try:
@@ -385,92 +403,103 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 await message.reply_text("NSFW ᴄᴏɴᴛᴇɴᴛ ᴅᴇᴛᴇᴄᴛᴇᴅ. Fɪʟᴇ ᴜᴘʟᴏᴀᴅ ʀᴇᴊᴇᴄᴛᴇᴅ.")
                 return
 
+            # ENHANCED EXTRACTION - Fixed to properly detect from actual filename
             episode_number = extract_episode_number(file_name)
             season_number = extract_season_number(file_name)
             audio_info_extracted = extract_audio_info(file_name)  
             quality_extracted = extract_quality(file_name)
 
+            print(f"DEBUG: Final extracted values - Season: {season_number}, Episode: {episode_number}")
+
             template = format_template
             
-            # --- Placeholder Replacement Logic ---
+            # --- FIXED PLACEHOLDER REPLACEMENT LOGIC ---
             
-            season_value_formatted = str(season_number).zfill(2) if season_number is not None else None 
-            episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else None 
+            # Format numbers with leading zeros
+            season_value_formatted = str(season_number).zfill(2) if season_number is not None else "01"  # Default to 01 if not found
+            episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else "01"  # Default to 01 if not found
 
-            # 1. Combined SSeason and EP{episode} placeholder handling
+            # 1. Combined Season-Episode block replacement
             season_episode_block_regex = re.compile(r'(\[?\s*SSeason\s*-\s*EP\{episode\}\s*\]?)', re.IGNORECASE)
 
             def season_episode_replacer(match):
                 has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
-
-                season_part = ""
-                episode_part = ""
-
-                if season_value_formatted:
-                    season_part = f"S{season_value_formatted}"
+                season_part = f"S{season_value_formatted}"
+                episode_part = f"EP{episode_value_formatted}"
                 
-                if episode_value_formatted:
-                    episode_part = f"EP{episode_value_formatted}"
-
-                if season_part and episode_part:
-                    return f"[{season_part} -{episode_part}]" if has_brackets else f"{season_part}-{episode_part}"
-                elif season_part: 
-                    return f"[{season_part}]" if has_brackets else season_part
-                elif episode_part: 
-                    return f"[{episode_part}]" if has_brackets else episode_part
-                else: 
-                    return ""
+                if has_brackets:
+                    return f"[{season_part}-{episode_part}]"
+                else:
+                    return f"{season_part}-{episode_part}"
             
             template = season_episode_block_regex.sub(season_episode_replacer, template)
 
+            # 2. Season placeholder replacement - FIXED to handle all variants
+            season_patterns = [
+                r'\{season\}',     # {season}
+                r'\{Season\}',     # {Season}
+                r'\bSeason\b',     # Season (word boundary)
+                r'\bseason\b',     # season (word boundary)
+                r'\bSEASON\b',     # SEASON (word boundary)
+            ]
+            
+            for pattern in season_patterns:
+                template = re.sub(pattern, season_value_formatted, template, flags=re.IGNORECASE)
 
-            # 2. Season placeholder replacement (covers Season, season, SEASON, {season})
-            season_placeholder_regex = re.compile(r'\b(?:Season|\{Season\})\b', re.IGNORECASE)
-            if season_value_formatted:
-                template = season_placeholder_regex.sub(season_value_formatted, template)
-            else:
-                template = season_placeholder_regex.sub("", template) 
+            # 3. Episode placeholder replacement - FIXED to handle all variants
+            episode_patterns = [
+                r'\{episode\}',    # {episode}
+                r'\{Episode\}',    # {Episode}
+                r'\bEpisode\b',    # Episode (word boundary)
+                r'\bepisode\b',    # episode (word boundary)
+                r'\bEPISODE\b',    # EPISODE (word boundary)
+            ]
+            
+            for pattern in episode_patterns:
+                template = re.sub(pattern, episode_value_formatted, template, flags=re.IGNORECASE)
 
-            # 3. Episode placeholder replacement (covers Episode, episode, EPISODE, {episode})
-            episode_placeholder_regex = re.compile(r'\b(?:Episode|\{Episode\})\b', re.IGNORECASE)
-            if episode_value_formatted:
-                template = episode_placeholder_regex.sub(episode_value_formatted, template)
-            else:
-                template = episode_placeholder_regex.sub("", template) 
+            # 4. Audio placeholder replacement - FIXED to handle all variants
+            audio_replacement = audio_info_extracted if audio_info_extracted else ""
+            audio_patterns = [
+                r'\{audio\}',      # {audio}
+                r'\{Audio\}',      # {Audio}
+                r'\bAudio\b',      # Audio (word boundary)
+                r'\baudio\b',      # audio (word boundary)
+                r'\bAUDIO\b',      # AUDIO (word boundary)
+            ]
+            
+            for pattern in audio_patterns:
+                template = re.sub(pattern, audio_replacement, template, flags=re.IGNORECASE)
 
+            # 5. Quality placeholder replacement - FIXED to handle all variants
+            quality_replacement = quality_extracted if quality_extracted else ""
+            quality_patterns = [
+                r'\{quality\}',    # {quality}
+                r'\{Quality\}',    # {Quality}
+                r'\bQuality\b',    # Quality (word boundary)
+                r'\bquality\b',    # quality (word boundary)
+                r'\bQUALITY\b',    # QUALITY (word boundary)
+            ]
+            
+            for pattern in quality_patterns:
+                template = re.sub(pattern, quality_replacement, template, flags=re.IGNORECASE)
 
-            # 4. Audio placeholder replacement (Restored [Audio] recognition)
-            audio_placeholder_regex = re.compile(r'\b(?:Audio|\{Audio\}|\[Audio\])\b', re.IGNORECASE) 
-            replacement_audio = audio_info_extracted if audio_info_extracted else ""
+            # --- END FIXED PLACEHOLDER LOGIC ---
 
-            def audio_replacer_new(match):
-                return replacement_audio 
-            template = audio_placeholder_regex.sub(audio_replacer_new, template)
+            # Clean up extra spaces, brackets, and separators
+            template = re.sub(r'\s{2,}', ' ', template)  # Multiple spaces to single
+            template = re.sub(r'\[\s*-\s*\]', '', template)  # Empty brackets with dash
+            template = re.sub(r'\[\s*\]', '', template)  # Empty brackets
+            template = template.strip()  # Remove leading/trailing whitespace
+            template = re.sub(r'(\s*-\s*){2,}', r' - ', template)  # Multiple dashes
+            template = re.sub(r'\s*-\s*', '-', template)  # Clean dash spacing
+            template = re.sub(r'\s*\.\s*', '.', template)  # Clean dot spacing
+            template = re.sub(r'(\.-|-\.)', '', template)  # Remove dot-dash combinations
 
-
-            # 5. Quality placeholder replacement (Restored [Quality] recognition)
-            quality_placeholder_regex = re.compile(r'\b(?:Quality|\{Quality\}|\[Quality\])\b', re.IGNORECASE) 
-            replacement_quality = quality_extracted if quality_extracted else ""
-
-            def quality_replacer_new(match):
-                return replacement_quality 
-            template = quality_placeholder_regex.sub(quality_replacer_new, template)
-
-            # --- END Placeholder Logic ---
-
-            # Clean up extra spaces or hyphens left by removed placeholders
-            template = re.sub(r'\s{2,}', ' ', template) 
-            template = re.sub(r'\[\s*-\s*\]', '', template) 
-            template = template.strip() 
-            template = re.sub(r'(\s*-\s*){2,}', r' - ', template) 
-            template = re.sub(r'\s*-\s*', '-', template) 
-            template = re.sub(r'\s*\.\s*', '.', template) 
-            template = re.sub(r'(\.-|-\.)', '', template) 
-
-            # Final pass for common unwanted patterns after replacement
-            template = re.sub(r'^\s*[-._\s]+', '', template) 
-            template = re.sub(r'[-._\s]+\s*$', '', template) 
-            template = re.sub(r'(\s*[-._]+\s*){2,}', r' - ', template) 
+            # Final cleanup for unwanted patterns
+            template = re.sub(r'^\s*[-._\s]+', '', template)  # Leading separators
+            template = re.sub(r'[-._\s]+\s*$', '', template)  # Trailing separators
+            template = re.sub(r'(\s*[-._]+\s*){2,}', r' - ', template)  # Multiple separators
 
             _, file_extension = os.path.splitext(file_name)
             
@@ -478,6 +507,8 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 file_extension = '.' + file_extension if file_extension else ''
             
             renamed_file_name = f"{template}{file_extension}"
+            
+            print(f"DEBUG: Final renamed file: {renamed_file_name}")
             
             renamed_file_path, metadata_file_path, unique_file_name = generate_unique_paths(renamed_file_name)
 
