@@ -78,41 +78,15 @@ def extract_episode_number(filename):
     return None
 
 def extract_season_number(filename):
-    """
-    Enhanced season extraction with better pattern matching and validation.
-    """
-    if not filename:
-        return None
-        
-    print(f"DEBUG: Extracting season from: '{filename}'")
-    
     patterns = [
-        # Pattern 1: S##E## format (extract season part)
-        re.compile(r'S(\d+)[._-]?E\d+', re.IGNORECASE),
-        # Pattern 2: Season XX formats
-        re.compile(r'Season[\s._-]*(\d+)', re.IGNORECASE),
-        # Pattern 3: S## standalone (with boundaries)
-        re.compile(r'\bS(\d+)\b', re.IGNORECASE),
-        # Pattern 4: [S##] or (S##) format
-        re.compile(r'[\[\(]S(\d+)[\]\)]', re.IGNORECASE),
-        # Pattern 5: Season with separators
-        re.compile(r'[._-]S(\d+)(?:[._-]|$)', re.IGNORECASE),
+        re.compile(r"S(\d+)", re.IGNORECASE),
+        re.compile(r"Season[_\s-]?(\d+)", re.IGNORECASE),
     ]
-    
-    for i, pattern in enumerate(patterns):
-        match = pattern.search(filename)
+    for pattern in patterns:
+        match = re.search(pattern, filename)
         if match:
-            try:
-                season_num = int(match.group(1))
-                # Validate season number (should be reasonable)
-                if 1 <= season_num <= 99:
-                    print(f"DEBUG: Season Pattern {i+1} found season: {season_num}")
-                    return season_num
-            except ValueError:
-                continue
-    
-    print(f"DEBUG: No season number found in: '{filename}'")
-    return None
+            return int(match.group(1))
+    return 1  # Default to season 1 if not found
 
 def extract_audio_info(filename):
     """Extract audio information from filename, including languages and 'dual'/'multi'."""
