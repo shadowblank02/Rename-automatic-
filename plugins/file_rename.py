@@ -33,9 +33,11 @@ def detect_quality(file_name):
     match = re.search(r"(360p|480p|720p|1080p)", file_name, re.IGNORECASE)
     return quality_order.get(match.group(1).lower(), 4) if match else 4
 
+
 def extract_episode_number(filename):
     """
     Enhanced episode extraction with better pattern matching and validation.
+    Now supports all common episode naming conventions.
     """
     if not filename:
         return None
@@ -45,20 +47,39 @@ def extract_episode_number(filename):
     patterns = [
         # Pattern 1: S##E## format (most reliable)
         re.compile(r'S\d+[.-_]?E(\d+)', re.IGNORECASE),
+        
         # Pattern 2: Episode XX, EP XX formats  
         re.compile(r'(?:Episode|EP)[\s._-]*(\d+)', re.IGNORECASE),
+        
         # Pattern 3: E## standalone (with word boundaries)
         re.compile(r'\bE(\d+)\b', re.IGNORECASE),
+        
         # Pattern 4: [E##] or (E##) format
         re.compile(r'[\[\(]E(\d+)[\]\)]', re.IGNORECASE),
-        # Pattern 5: X of Y format
+        
+        # Pattern 5: [Episode ##] or (Episode ##) format
+        re.compile(r'[\[\(]Episode[\s._-]*(\d+)[\]\)]', re.IGNORECASE),
+        
+        # Pattern 6: X of Y format
         re.compile(r'\b(\d+)\s*of\s*\d+\b', re.IGNORECASE),
-        # Pattern 6: Three digit numbers (likely episodes 001-999)
+        
+        # Pattern 7: Episode with word boundaries
+        re.compile(r'(?:^|[\s._-])Episode[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
+        
+        # Pattern 8: EP with word boundaries  
+        re.compile(r'(?:^|[\s._-])EP[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
+        
+        # Pattern 9: Three digit numbers (likely episodes 001-999)
         re.compile(r'(?:^|[^0-9])(\d{3})(?:[^0-9]|$)', re.IGNORECASE),
-        # Pattern 7: Two digit numbers in specific contexts
+        
+        # Pattern 10: Two digit numbers in specific contexts
         re.compile(r'(?:[\s._-]|^)(\d{2})(?:[\s._-]|$)', re.IGNORECASE),
-        # Pattern 8: Single digits with separators
+        
+        # Pattern 11: Single digits with separators
         re.compile(r'(?:[\s._-])(\d{1})(?:[\s._-]|$)', re.IGNORECASE),
+        
+        # Pattern 12: Alternative E formats with boundaries
+        re.compile(r'(?:^|[\s._-])E[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
     ]
     
     for i, pattern in enumerate(patterns):
@@ -77,10 +98,27 @@ def extract_episode_number(filename):
     print(f"DEBUG: No episode number found in: '{filename}'")
     return None
 
+
 def extract_season_number(filename):
+    """
+    Enhanced season extraction with better pattern matching and validation.
+    """
+    if not filename:
+        return None
+        
+    print(f"DEBUG: Extracting season from: '{filename}'")
+    
     patterns = [
-        re.compile(r"S(\d+)", re.IGNORECASE),
-        re.compile(r"Season[_\s-]?(\d+)", re.IGNORECASE),
+        # Pattern 1: S## format (most reliable)
+        re.compile(r'S(\d+)', re.IGNORECASE),
+        # Pattern 2: Season XX format  
+        re.compile(r'Season[\s._-]*(\d+)', re.IGNORECASE),
+        # Pattern 3: [Season XX] or (Season XX) format
+        re.compile(r'[\[\(]Season[\s._-]*(\d+)[\]\)]', re.IGNORECASE),
+        # Pattern 4: Standalone season numbers in specific contexts
+        re.compile(r'(?:^|[\s._-])Season[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
+        # Pattern 5: Alternative season formats
+        re.compile(r'(?:^|[\s._-])S[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
     ]
     for pattern in patterns:
         match = re.search(pattern, filename)
