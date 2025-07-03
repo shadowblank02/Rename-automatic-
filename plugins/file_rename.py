@@ -259,51 +259,50 @@ async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
         await message.reply_text("Wʜᴀᴛ ᴀʀᴇ ʏᴏᴜ ᴅᴏɪɴɢ ɴᴏ ᴀᴄᴛɪᴠᴇ sᴇǫᴜᴇɴᴄᴇ ғᴏᴜɴᴅ...!!")
-        return
-
-    file_list = active_sequences.pop(user_id, [])
-    delete_messages = message_ids.pop(user_id, [])
-    count = len(file_list)
-
-    if not file_list:
-        await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
     else:
-        file_list.sort(key=lambda x: x["episode_num"] if x["episode_num"] is not None else float('inf'))
-        await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
-        
-        for index, file_info in enumerate(file_list, 1):
-            try:
-                await asyncio.sleep(0.5)
-                
-                original_message = file_info["message"]
-                
-                if original_message.document:
-                    await client.send_document(
-                        message.chat.id,
-                        original_message.document.file_id,
-                        caption=f"{file_info['file_name']}"
-                    )
-                elif original_message.video:
-                    await client.send_video(
-                        message.chat.id,
-                        original_message.video.file_id,
-                        caption=f"{file_info['file_name']}"
-                    )
-                elif original_message.audio:
-                    await client.send_audio(
-                        message.chat.id,
-                        original_message.audio.file_id,
-                        caption=f"{file_info['file_name']}"
-                    )
-            except Exception as e:
-                await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file_info.get('file_name', '')}\n{e}")
-        
-        await message.reply_text(f"✅ Aʟʟ {count} ғɪʟes sᴇɴᴛ sᴜᴄᴄᴇssғᴜʟʟʏ ɪɴ sᴇǫᴜᴇɴᴄᴇ!")
+        file_list = active_sequences.pop(user_id, [])
+        delete_messages = message_ids.pop(user_id, [])
+        count = len(file_list)
 
-    try:
-        await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
-    except Exception as e:
-        print(f"Error deleting messages: {e}")
+        if not file_list:
+            await message.reply_text("Nᴏ ғɪʟᴇs ᴡᴇʀᴇ sᴇɴᴛ ɪɴ ᴛʜɪs sᴇǫᴜᴇɴᴄᴇ....ʙʀᴏ...!!")
+        else:
+            file_list.sort(key=lambda x: x["episode_num"] if x["episode_num"] is not None else float('inf'))
+            await message.reply_text(f"Sᴇǫᴜᴇɴᴄᴇ ᴇɴᴅᴇᴅ. Nᴏᴡ sᴇɴᴅɪɴɢ ʏᴏᴜʀ {count} ғɪʟᴇ(s) ʙᴀᴄᴋ ɪɴ sᴇǫᴜᴇɴᴄᴇ...!!")
+            
+            for index, file_info in enumerate(file_list, 1):
+                try:
+                    await asyncio.sleep(0.5)
+                    
+                    original_message = file_info["message"]
+                    
+                    if original_message.document:
+                        await client.send_document(
+                            message.chat.id,
+                            original_message.document.file_id,
+                            caption=f"{file_info['file_name']}"
+                        )
+                    elif original_message.video:
+                        await client.send_video(
+                            message.chat.id,
+                            original_message.video.file_id,
+                            caption=f"{file_info['file_name']}"
+                        )
+                    elif original_message.audio:
+                        await client.send_audio(
+                            message.chat.id,
+                            original_message.audio.file_id,
+                            caption=f"{file_info['file_name']}"
+                        )
+                except Exception as e:
+                    await message.reply_text(f"Fᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ: {file_info.get('file_name', '')}\n{e}")
+            
+            await message.reply_text(f"✅ Aʟʟ {count} ғɪʟes sᴇɴᴛ sᴜᴄᴄᴇssғᴜʟʟʏ ɪɴ sᴇǫᴜᴇɴᴄᴇ!")
+
+        try:
+            await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
+        except Exception as e:
+            print(f"Error deleting messages: {e}")
 
 async def process_thumb_async(ph_path):
     """Process thumbnail in thread pool to avoid blocking"""
@@ -437,38 +436,42 @@ async def auto_rename_file_concurrent(client, message, file_info):
             season_value_formatted = str(season_number).zfill(2) if season_number is not None else "01"  # Default to 01 if not found
             episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else "01"  # Default to 01 if not found
 
-            # 1. Combined Season-Episode block replacement
-            # This regex captures the specific "SSeason - EP{episode}" pattern or its bracketed version.
-            # The inner parts ({season}, {episode}) are replaced by the general patterns below.
-            season_episode_block_regex = re.compile(r'(\[?\s*SSeason\s*-\s*EP\{episode\}\s*\]?)', re.IGNORECASE)
+            # 1. Handle SSeasonXX pattern specifically first (e.g., SSeason01 -> S01)
+            # This regex looks for 'S' immediately followed by 'Season' (case-insensitive) and then digits.
+            # It replaces it with 'S' and the formatted season number.
+            template = re.sub(r'S(?:Season|season|SEASON)(\d+)', f'S{season_value_formatted}', template, flags=re.IGNORECASE)
 
-            # 1. SEASON PLACEHOLDER REPLACEMENT - Multiple patterns
+            # 2. Regular SEASON PLACEHOLDER REPLACEMENT - Multiple patterns
             season_replacements = [
-                # Curly brace patterns
+                # Curly brace patterns - REPLACES WITH JUST THE NUMBER (e.g., {season} -> 01)
                 (re.compile(r'\{season\}', re.IGNORECASE), season_value_formatted),
                 (re.compile(r'\{Season\}', re.IGNORECASE), season_value_formatted),
                 (re.compile(r'\{SEASON\}', re.IGNORECASE), season_value_formatted),
 
-                # Word boundary patterns - standalone words
+                # Word boundary patterns - standalone words - REPLACES WITH JUST THE NUMBER (e.g., Season -> 01)
                 (re.compile(r'\bseason\b', re.IGNORECASE), season_value_formatted),
                 (re.compile(r'\bSeason\b', re.IGNORECASE), season_value_formatted),
                 (re.compile(r'\bSEASON\b', re.IGNORECASE), season_value_formatted),
                 
-                # Specific season patterns with separators
-                (re.compile(r'Season[\s._-]*\d*', re.IGNORECASE), f"Season{season_value_formatted}"),
-                (re.compile(r'season[\s._-]*\d*', re.IGNORECASE), f"season{season_value_formatted}"),
-                (re.compile(r'SEASON[\s._-]*\d*', re.IGNORECASE), f"SEASON{season_value_formatted}"),
+                # Specific season patterns with separators (e.g., Season 1, season-02) - NOW REMOVES "Season" TEXT (e.g., Season 01 -> 01)
+                (re.compile(r'Season[\s._-]*\d*', re.IGNORECASE), season_value_formatted),
+                (re.compile(r'season[\s._-]*\d*', re.IGNORECASE), season_value_formatted),
+                (re.compile(r'SEASON[\s._-]*\d*', re.IGNORECASE), season_value_formatted),
             ]
             
             for pattern, replacement in season_replacements:
-                if pattern.search(template):
-                    template = pattern.sub(replacement, template)
-                    
-            # 3. Episode placeholder replacement - Now correctly handles {episode}, {Episode}, and standalone "episode", "EP"
+                template = pattern.sub(replacement, template)
+
+            # NEW: Handle EPEpisode patterns specifically (e.g., EPEpisode -> EP01)
+            # This regex looks for 'EP' immediately followed by 'Episode' (case-insensitive).
+            # It replaces the matched "Episode" part with the formatted episode number, preserving 'EP'.
+            template = re.sub(r'EP(?:Episode|episode|EPISODE)', f'EP{episode_value_formatted}', template, flags=re.IGNORECASE)
+
+            # 3. Episode placeholder replacement - Now correctly handles {episode}, {Episode}, and standalone "episode"
             episode_patterns = [
-                re.compile(r'\{episode\}', re.IGNORECASE),  # {episode}, {Episode}
-                re.compile(r'\bEpisode\b', re.IGNORECASE),  # Episode, episode, EPISODE as standalone words
-                re.compile(r'\bEP\b', re.IGNORECASE) # Added 'EP' as a standalone word
+                re.compile(r'\{episode\}', re.IGNORECASE),  # {episode}, {Episode} -> 01
+                re.compile(r'\bEpisode\b', re.IGNORECASE),  # Episode, episode, EPISODE as standalone words -> 01
+                # Removed re.compile(r'\bEP\b', re.IGNORECASE) previously
             ]
             
             for pattern in episode_patterns:
@@ -611,6 +614,4 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
         except Exception as e:
             if 'file_id' in locals() and file_id in renaming_operations:
-                # This 'if' condition appears to be incomplete. It likely means to handle an error if 'file_id' is defined and in 'renaming_operations'.
-                # The line below would typically be where you would log or handle the error for that specific file_id.
                 print(f"An error occurred during renaming for file_id {file_id}: {e}")
