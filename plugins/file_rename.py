@@ -86,19 +86,139 @@ def extract_season_number(filename):
         
     print(f"DEBUG: Extracting season from: '{filename}'")
     
+    Season}, {SEASON}
+Added patterns for seasons with separators, brackets, and at word boundaries
+
+2. Fixed Placeholder Replacement Logic
+
+Created a dedicated function replace_placeholders_in_template() that handles all placeholder types
+Added support for multiple season formats: {season}, Season, season, SEASON
+Added support for multiple episode formats: {episode}, Episode, episode, EP, ep
+Improved handling of combined patterns like S{season}E{episode}
+
+3. Better Pattern Matching
+
+Uses word boundaries (\b) to avoid partial matches
+Handles case-insensitive matching properly
+Processes patterns in order of specificity (most specific first)
+
+4. Enhanced Debugging
+
+Added comprehensive debug output to track extraction and replacement
+Easy to identify which patterns are working and which aren't
+
+How to Integrate:
+
+Replace the season/episode extraction functions in your code with the enhanced versions from the artifact
+Replace the entire placeholder replacement section in your auto_rename_file_concurrent function (the section between # --- FIXED PLACEHOLDER REPLACEMENT LOGIC and # --- END FIXED PLACEHOLDER LOGIC) with:
+
+python# Apply template replacements using the new enhanced function
+template = apply_template_replacements(
+    format_template, 
+    season_number, 
+    episode_number, 
+    audio_info_extracted, 
+    quality_extracted
+)
+
+Test with the provided test function to verify everything works correctly
+
+This fix should now properly handle all these placeholder formats:
+
+{season}, {Season}, {SEASON}
+season, Season, SEASON (as standalone words)
+{episode}, {Episode}, {EPISODE}
+episode, Episode, EPISODE, EP, ep (as standalone words)
+Combined patterns like S{season}E{episode} and [SSeason - EP{episode}]
+RetryClaude does not have the ability to run the code it generates yet.SCheck these placeholders of season are inside the code 
+Placeholders - Season, season, SEASON and {season}EditLet me search through your code to check which season placeholders are currently implemented:python regex season placeholder replacement code analysis10 resultsRegular Expression HOWTO — Python 3.13.5 documentationpython.orgre — Regular expression operationspython.orgPython Regular Expressions: A Comprehensive Guide with Examples - CodeRiverscoderivers.orgregex - How do I use regular expressions in Python with placeholder text? - Stack Overflowstackoverflow.comHow to use the regex.I function in regex | Snyksnyk.iopython - RegEx for extracting placeholder matches - Stack Overflowstackoverflow.compython - How to properly use placeholders in re module? - Stack Overflowstackoverflow.compandas.Series.str.replace — pandas 2.3.0 documentationpydata.orgThe incredible power of Python's replace regexplainenglish.ioRegEx in Python: Match and Replace Basics with Examplesdiveintopython.orgRetryClaude hit the maximum length for this conversation. Please start a new conversation to continue chatting with Claude.SCheck and tell meEditLooking at your code, I can see the current season placeholder implementation. Here's what I found:Current Season Placeholders AnalysisCode # CURRENT SEASON PLACEHOLDERS IN YOUR CODE - ANALYSIS
+
+# From your code, here are the current season placeholder patterns:
+
+# 2. Season placeholder replacement - Now correctly handles {season}, {Season}, and standalone "season", "SEASON"
+season_patteCurrent Status of Season Placeholders in Your Code:
+Looking at your code, here's what I found:
+Currently Implemented:
+pythonseason_patterns = [
+    re.compile(r'\{season\}', re.IGNORECASE), # {season}, {Season}
+    re.compile(r'\bSeason\b', re.IGNORECASE), # Season, season, SEASON as standalone words
+]
+Analysis:
+✅ WORKING:
+
+{season} - Works perfectly
+{Season} - Works (due to re.IGNORECASE)
+{SEASON} - Works (due to re.IGNORECASE)
+
+⚠️ PARTIALLY WORKING:
+
+Season - Matches but doesn't preserve case context
+season - Matches but doesn't preserve case context
+SEASON - Matches but doesn't preserve case context
+
+The Problem:
+Your current code has only 2 patterns but needs to handle 6 different placeholder formats:
+
+{season} ✅
+{Season} ✅
+{SEASON} ✅
+Season ⚠️ (works but case issues)
+season ⚠️ (works but case issues)
+SEASON ⚠️ (works but case issues)
+
+Issues with Current Implementation:
+
+Case Preservation: When you use Season in your template, it gets replaced with just 01 instead of Season01
+Limited Flexibility: Only 2 patterns for 6 different use cases
+No Context Awareness: Doesn't handle seasons with separators like Season.1 or Season_1
+
+Recommendation:
+Replace your current season placeholder section with the enhanced version from my previous artifact that includes:
+
+Separate patterns for each case variant
+Better case preservation
+More flexible matching
+Proper context handling
+
+Would you like me to show you exactly which lines to replace in your code?RetryClaude does not have the ability to run the code it generates yet.Claude can make mistakes. Please double-check responses. Sonnet 4v1def extract_season_number(filename):
+    """
+    Enhanced season extraction with better pattern matching and validation.
+    """
+    if not filename:
+        return None
+        
+    print(f"DEBUG: Extracting season from: '{filename}'")
+    
     patterns = [
-        # Pattern 1: S##E## format (extract season part)
+        # Pattern 1: S##E## format (extract season part) - Most reliable
         re.compile(r'S(\d+)[._-]?E\d+', re.IGNORECASE),
-        # Pattern 2: Season XX, SEASON XX, season XX formats (more explicit)
+        
+        # Pattern 2: Season XX, SEASON XX formats (more explicit)
         re.compile(r'(?:Season|SEASON|season)[\s._-]*(\d+)', re.IGNORECASE),
-        # Pattern 3: S## standalone (with boundaries)
+        
+        # Pattern 3: S## standalone (with word boundaries)
         re.compile(r'\bS(\d+)\b', re.IGNORECASE),
+        
         # Pattern 4: [S##] or (S##) format
         re.compile(r'[\[\(]S(\d+)[\]\)]', re.IGNORECASE),
-        # Pattern 5: Season with separators
+        
+        # Pattern 5: Season with separators (more flexible)
         re.compile(r'[._-]S(\d+)(?:[._-]|$)', re.IGNORECASE),
-        # Pattern 6: Direct number after 'season' keyword, but less specific
-        re.compile(r'(?:season|SEASON)\s*(\d+)', re.IGNORECASE), # Added this for 'season X'
+        
+        # Pattern 6: Season followed by number (case insensitive)
+        re.compile(r'(?:season|SEASON|Season)[\s._-]*(\d+)', re.IGNORECASE),
+        
+        # Pattern 7: More flexible season patterns
+        re.compile(r'(?:^|[\s._-])(?:season|SEASON|Season)[\s._-]*(\d+)(?:[\s._-]|$)', re.IGNORECASE),
+        
+        # Pattern 8: Season in brackets or parentheses
+        re.compile(r'[\[\(](?:season|SEASON|Season)[\s._-]*(\d+)[\]\)]', re.IGNORECASE),
+        
+        # Pattern 9: Season with various separators
+        re.compile(r'(?:season|SEASON|Season)[._\s-]+(\d+)', re.IGNORECASE),
+        
+        # Pattern 10: Season at beginning or end
+        re.compile(r'(?:^season|season$)[\s._-]*(\d+)', re.IGNORECASE),
     ]
     
     for i, pattern in enumerate(patterns):
@@ -425,27 +545,32 @@ async def auto_rename_file_concurrent(client, message, file_info):
             # The inner parts ({season}, {episode}) are replaced by the general patterns below.
             season_episode_block_regex = re.compile(r'(\[?\s*SSeason\s*-\s*EP\{episode\}\s*\]?)', re.IGNORECASE)
 
-            def season_episode_replacer(match):
-                has_brackets = match.group(1).startswith('[') and match.group(1).endswith(']')
-                season_part = f"S{season_value_formatted}"
-                episode_part = f"EP{episode_value_formatted}"
-                
-                if has_brackets:
-                    return f"[{season_part}-{episode_part}]"
-                else:
-                    return f"{season_part}-{episode_part}"
-            
-            template = season_episode_block_regex.sub(season_episode_replacer, template)
+            # Format numbers with leading zeros
+    season_value_formatted = str(season_number).zfill(2) if season_number is not None else "01"
+    episode_value_formatted = str(episode_number).zfill(2) if episode_number is not None else "01"
+    
+    # 1. SEASON PLACEHOLDER REPLACEMENT - Multiple patterns
+    season_replacements = [
+        # Curly brace patterns
+        (re.compile(r'\{season\}', re.IGNORECASE), season_value_formatted),
+        (re.compile(r'\{Season\}', re.IGNORECASE), season_value_formatted),
+        (re.compile(r'\{SEASON\}', re.IGNORECASE), season_value_formatted),
 
-            # 2. Season placeholder replacement - Now correctly handles {season}, {Season}, and standalone "season", "SEASON"
-            season_patterns = [
-                re.compile(r'\{season\}', re.IGNORECASE), # {season}, {Season}
-                re.compile(r'\bSeason\b', re.IGNORECASE), # Season, season, SEASON as standalone words
-            ]
+        # Word boundary patterns - standalone words
+        (re.compile(r'\bseason\b', re.IGNORECASE), season_value_formatted),
+        (re.compile(r'\bSeason\b', re.IGNORECASE), season_value_formatted),
+        (re.compile(r'\bSEASON\b', re.IGNORECASE), season_value_formatted),
+        
+        # Specific season patterns with separators
+        (re.compile(r'Season[\s._-]*\d*', re.IGNORECASE), f"Season{season_value_formatted}"),
+        (re.compile(r'season[\s._-]*\d*', re.IGNORECASE), f"season{season_value_formatted}"),
+        (re.compile(r'SEASON[\s._-]*\d*', re.IGNORECASE), f"SEASON{season_value_formatted}"),
+    ]
+    
+ for pattern, replacement in season_replacements:
+        if pattern.search(template):
+            template = pattern.sub(replacement, template)
             
-            for pattern in season_patterns:
-                template = pattern.sub(season_value_formatted, template)
-
             # 3. Episode placeholder replacement - Now correctly handles {episode}, {Episode}, and standalone "episode", "EP"
             episode_patterns = [
                 re.compile(r'\{episode\}', re.IGNORECASE),  # {episode}, {Episode}
