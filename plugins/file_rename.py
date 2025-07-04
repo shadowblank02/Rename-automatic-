@@ -196,23 +196,29 @@ def extract_quality(filename):
             
     return None
 
-# --- Enhanced filename generation with UUID for uniqueness ---
+# --- Modified filename generation to NOT add UUID to filename ---
 def generate_unique_paths(renamed_file_name):
-    """Generate unique file paths to avoid conflicts"""
-    unique_id = str(uuid.uuid4())[:8]
+    """
+    Generate file paths.
+    IMPORTANT: This version does NOT append a unique ID to the filename itself.
+    This means if two files are renamed to the exact same name, one will overwrite the other.
+    Ensure your renaming template creates unique names or be aware of this limitation.
+    """
     base_name, ext = os.path.splitext(renamed_file_name)
     
     if not ext.startswith('.'):
         ext = '.' + ext if ext else ''
     
-    unique_file_name = f"{base_name}_{unique_id}{ext}"
-    renamed_file_path = os.path.join("downloads", unique_file_name)
-    metadata_file_path = os.path.join("Metadata", unique_file_name)
+    # Use the renamed_file_name directly as the unique_file_name_for_storage
+    unique_file_name_for_storage = renamed_file_name 
+
+    renamed_file_path = os.path.join("downloads", unique_file_name_for_storage)
+    metadata_file_path = os.path.join("Metadata", unique_file_name_for_storage)
     
     os.makedirs(os.path.dirname(renamed_file_path), exist_ok=True)
     os.makedirs(os.path.dirname(metadata_file_path), exist_ok=True)
     
-    return renamed_file_path, metadata_file_path, unique_file_name
+    return renamed_file_path, metadata_file_path, unique_file_name_for_storage
 
 @Client.on_message(filters.command("start_sequence") & filters.private)
 async def start_sequence(client, message: Message):
@@ -523,7 +529,10 @@ async def auto_rename_file_concurrent(client, message, file_info):
             
             print(f"DEBUG: Final renamed file: {renamed_file_name}")
             
-            renamed_file_path, metadata_file_path, unique_file_name = generate_unique_paths(renamed_file_name)
+            # This is where the change is:
+            # We are now passing renamed_file_name directly without appending a unique_id
+            renamed_file_path, metadata_file_path, unique_file_name_for_storage = generate_unique_paths(renamed_file_name)
+
 
             download_msg = await message.reply_text("Wᴇᴡ... Iᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
