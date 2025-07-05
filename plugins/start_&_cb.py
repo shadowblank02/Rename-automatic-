@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, 
 from helper.database import codeflixbots
 from config import *
 from config import Config
-from functiontools import wraps 
+from functools import wraps 
 
 def check_ban_status(func):
     @wraps(func)
@@ -15,7 +15,7 @@ def check_ban_status(func):
         is_banned, ban_reason = await codeflixbots.is_user_banned(user_id)
         if is_banned:
             await message.reply_text(
-                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**\n\n**Rᴇᴀsᴏɴ:**"
+                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**"
             )
             return
         return await func(client, message, *args, **kwargs)
