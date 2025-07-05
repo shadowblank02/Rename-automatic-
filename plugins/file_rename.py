@@ -13,6 +13,23 @@ from plugins.antinsfw import check_anti_nsfw
 from helper.utils import progress_for_pyrogram, humanbytes, convert
 from helper.database import codeflixbots
 from config import Config
+from functools import wraps
+
+def check_ban_status(func):
+    @wraps(func)
+    async def wrapper(client, message, *args, **kwargs):
+        user_id = message.from_user.id
+        is_banned, ban_reason = await DARKXSIDE78.is_user_banned(user_id)
+        if is_banned:
+            await message.reply_text(
+                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**\n\n**Rᴇᴀsᴏɴ:** {ban_reason}"
+            )
+            return
+        return await func(client, message, *args, **kwargs)
+    return wrapper
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 active_sequences = {}
 message_ids = {}
