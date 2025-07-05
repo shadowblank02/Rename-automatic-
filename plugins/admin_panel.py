@@ -26,6 +26,65 @@ async def restart_bot(b, m):
         # Restart the bot process
         os.execl(sys.executable, sys.executable, *sys.argv)
 
+@Client.on_message(filters.command("ban") & filters.user(Config.ADMIN))
+async def ban_user(bot: Client, message: Message):
+    try:
+        args = message.text.split(maxsplit=2)
+        if len(args) < 2:
+            return await message.reply_text("**Usᴀɢᴇ:** `/ban @username/userid [reason]`")
+        
+        user_ref = args[1]
+        reason = args[2] if len(args) > 2 else "No reason provided"
+
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("**Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
+        
+        await codeflixbots.col.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "ban_status.is_banned": True,
+                "ban_status.banned_on": datetime.now(pytz.utc).isoformat(),
+                "ban_status.ban_reason": reason
+            }}
+        )
+        await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ʙᴀɴɴᴇᴅ.**\n**Rᴇᴀsᴏɴ:** {reason}")
+    except Exception as e:
+        await message.reply_text(f"**Eʀʀᴏʀ: {e}\nUsᴀɢᴇ: /ban @username/userid [reason]**")
+
+@Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
+async def unban_user(bot: Client, message: Message):
+    try:
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            return await message.reply_text("**Usᴀɢᴇ:** `/unban @username/userid`")
+        
+        user_ref = args[1]
+
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("**Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
+        
+        await codeflixbots.col.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "ban_status.is_banned": False,
+                "ban_status.banned_on": None,
+                "ban_status.ban_reason": None
+            }}
+        )
+        await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ᴜɴʙᴀɴɴᴇᴅ.**")
+    except Exception as e:
+        await message.reply_text(f"**Eʀʀᴏʀ: {e}\nUsᴀɢᴇ: /unban @username/userid**")
+
 @Client.on_message(filters.private & filters.command(["tutorial"]))
 async def tutorial(bot, message):
     user_id = message.from_user.id
