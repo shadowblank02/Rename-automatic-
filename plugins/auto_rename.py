@@ -1,6 +1,24 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from helper.database import codeflixbots
+import logging 
+from functools import wraps 
+
+def check_ban_status(func):
+    @wraps(func)
+    async def wrapper(client, message, *args, **kwargs):
+        user_id = message.from_user.id
+        is_banned, ban_reason = await codeflixbots.is_user_banned(user_id)
+        if is_banned:
+            await message.reply_text(
+                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**"
+            )
+            return
+        return await func(client, message, *args, **kwargs)
+    return wrapper
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.private & filters.command("autorename"))
 async def auto_rename_command(client, message):
