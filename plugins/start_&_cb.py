@@ -15,7 +15,7 @@ def check_ban_status(func):
         is_banned, ban_reason = await codeflixbots.is_user_banned(user_id)
         if is_banned:
             await message.reply_text(
-                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**\n\n**Rᴇᴀsᴏɴ:** {ban_reason}"
+                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**\n\n**Rᴇᴀsᴏɴ:**"
             )
             return
         return await func(client, message, *args, **kwargs)
