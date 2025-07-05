@@ -31,7 +31,7 @@ async def ban_user(bot: Client, message: Message):
     try:
         args = message.text.split(maxsplit=2)
         if len(args) < 2:
-            return await message.reply_text("**Usᴀɢᴇ:** `/ban @username/userid [reason]`")
+            return await message.reply_text("**/ban @username/userid [reason]**")
         
         user_ref = args[1]
         reason = args[2] if len(args) > 2 else "No reason provided"
@@ -54,14 +54,14 @@ async def ban_user(bot: Client, message: Message):
         )
         await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ʙᴀɴɴᴇᴅ.**\n**Rᴇᴀsᴏɴ:** {reason}")
     except Exception as e:
-        await message.reply_text(f"**Eʀʀᴏʀ: {e}\nUsᴀɢᴇ: /ban @username/userid [reason]**")
+        await message.reply_text(f"**/ban @username/userid [reason]**")
 
 @Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
 async def unban_user(bot: Client, message: Message):
     try:
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
-            return await message.reply_text("**Usᴀɢᴇ:** `/unban @username/userid`")
+            return await message.reply_text("**/unban @username/userid**")
         
         user_ref = args[1]
 
@@ -71,7 +71,7 @@ async def unban_user(bot: Client, message: Message):
             user = await codeflixbots.col.find_one({"_id": int(user_ref)})
         
         if not user:
-            return await message.reply_text("**Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
+            return await message.reply_text("**Wᴛғ Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
         
         await codeflixbots.col.update_one(
             {"_id": user["_id"]},
@@ -83,7 +83,7 @@ async def unban_user(bot: Client, message: Message):
         )
         await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ᴜɴʙᴀɴɴᴇᴅ.**")
     except Exception as e:
-        await message.reply_text(f"**Eʀʀᴏʀ: {e}\nUsᴀɢᴇ: /unban @username/userid**")
+        await message.reply_text(f"**/unban @username/userid**")
 
 @Client.on_message(filters.private & filters.command(["tutorial"]))
 async def tutorial(bot, message):
