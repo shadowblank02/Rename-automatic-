@@ -21,6 +21,9 @@ def check_ban_status(func):
         return await func(client, message, *args, **kwargs)
     return wrapper
 
+user = message.from_user
+    await codeflixbots.add_user(client, message)
+
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message: Message):
