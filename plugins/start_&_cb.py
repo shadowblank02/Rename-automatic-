@@ -1,5 +1,6 @@
 import random
 import asyncio
+import logging 
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
@@ -21,8 +22,8 @@ def check_ban_status(func):
         return await func(client, message, *args, **kwargs)
     return wrapper
 
-user = message.from_user
-    await codeflixbots.add_user(client, message)
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
