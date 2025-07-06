@@ -20,9 +20,10 @@ from pyrogram.handlers import MessageHandler
 ADMIN_URL = Config.ADMIN_URL
 
 def register_handlers(app: Client):
-    app.add_handler(filters.command("start_sequence") & filters.private, start_sequence)
-    app.add_handler(filters.command("end_sequence") & filters.private, end_sequence)
-    app.add_handler(filters.private & (filters.document | filters.video | filters.audio), auto_rename_files)
+    app.add_handler(MessageHandler(start_sequence, filters.command("start_sequence") & filters.private))
+    app.add_handler(MessageHandler(end_sequence, filters.command("end_sequence") & filters.private))
+    app.add_handler(MessageHandler(auto_rename_files, filters.private & (filters.document | filters.video | filters.audio)))
+
 
 
 
