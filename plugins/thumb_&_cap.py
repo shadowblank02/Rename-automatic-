@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from helper.database import codeflixbots
 from config import Config
+from functools import wraps
 
 ADMIN_URL = Config.ADMIN_URL
 
