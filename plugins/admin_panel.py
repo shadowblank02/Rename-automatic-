@@ -18,12 +18,18 @@ is_restarting = False
 # --- Ban Check Decorator ---
 def check_ban(func):
     @wraps(func)
-    async def wrapper(client, message):
+    async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
         user = await codeflixbots.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
-            return await message.reply_text("🚫 You are banned from using this bot.")
-        return await func(client, message)
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
+            )
+            return await message.reply_text(
+                "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+                reply_markup=keyboard
+            )
+        return await func(client, message, *args, **kwargs)
     return wrapper
 
 @Client.on_message(filters.private & filters.command("restart") & filters.user(ADMIN_USER_ID))
