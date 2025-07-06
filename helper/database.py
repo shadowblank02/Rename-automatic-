@@ -118,18 +118,6 @@ class Database:
             logging.error(f"Error getting format template for user {id}: {e}")
             return None
 
-    async def is_user_banned(self, user_id: int):
-        """Check if a user is banned and return the ban status and reason."""
-        try:
-            user = await self.col.find_one({"_id": user_id})
-            if not user:
-                return False, None
-            ban_status = user.get("ban_status", {})
-            return ban_status.get("is_banned", False), ban_status.get("ban_reason", "No reason provided")
-        except Exception as e:
-            logging.error(f"Error checking ban status for user {user_id}: {e}")
-            return False, None
-
     async def set_media_preference(self, id, media_type):
         try:
             await self.col.update_one(
@@ -208,6 +196,20 @@ class Database:
 
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
+
+    # Example methods to add in helper/database.py
+
+    async def ban_user(user_id):
+        await db.banned_users.update_one({"_id": user_id}, {"$set": {"_id": user_id}}, upsert=True)
+ 
+    async def unban_user(user_id):
+        await db.banned_users.delete_one({"_id": user_id})
+
+    async def is_banned(user_id):
+        return await db.banned_users.find_one({"_id": user_id}) is not None
+
+    async def get_banned_users():
+        return db.banned_users.find()
 
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
