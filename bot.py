@@ -9,7 +9,6 @@ from aiohttp import web
 from route import web_server
 import pyrogram.utils
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from plugins import file_rename  # ✅ Make sure this import is added
 
 pyrogram.utils.MIN_CHANNEL_ID = -1002822095762
 SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
@@ -29,7 +28,6 @@ class Bot(Client):
 
     async def start(self):
         await super().start()
-        file_rename.register_handlers(self)
         me = await self.get_me()
         self.mention = me.mention
         self.username = me.username
