@@ -113,26 +113,6 @@ async def send_msg(user_id, message):
         return 500
 
 # --- Ban User Command ---
-@Client.on_message(filters.command("ban") & filters.user(Config.ADMIN))
-async def ban_user(bot, message):
-    try:
-        parts = message.text.split(maxsplit=2)
-        user_id = int(parts[1])
-        reason = parts[2] if len(parts) > 2 else "No reason provided"
-        await codeflixbots.col.update_one(
-            {"_id": user_id},
-            {"$set": {
-                "ban_status.is_banned": True,
-                "ban_status.ban_reason": reason,
-                "ban_status.banned_on": datetime.date.today().isoformat()
-            }},
-            upsert=True
-        )
-        await message.reply_text(f"✅ User `{user_id}` has been banned.\nReason: {reason}")
-    except Exception as e:
-        await message.reply_text(f"❌ Usage: /ban user_id reason\nError: {e}")
-
-# --- Ban User Command ---
 @Client.on_message(filters.command("ban"))
 async def ban_user(bot, message):
     if message.from_user.id not in Config.ADMIN:
