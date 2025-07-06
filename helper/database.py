@@ -197,40 +197,19 @@ class Database:
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
 
-    async def ban_user(self, user_id: int, duration_days: int = 0, reason: str = ""):
-        banned_on = datetime.date.today().isoformat()
-        ban_status = {
-            "is_banned": True,
-            "ban_duration": duration_days,
-            "banned_on": banned_on,
-            "ban_reason": reason,
-        }
-        await self.col.update_one(
-            {"_id": int(user_id)},
-            {"$set": {"ban_status": ban_status}},
-            upsert=True
-        )
+    # Example methods to add in helper/database.py
 
-    async def unban_user(self, user_id: int):
-        ban_status = {
-            "is_banned": False,
-            "ban_duration": 0,
-            "banned_on": datetime.date.max.isoformat(),
-            "ban_reason": "",
-        }
-        await self.col.update_one(
-            {"_id": int(user_id)},
-            {"$set": {"ban_status": ban_status}}
-        )
+    async def ban_user(user_id):
+        await db.banned_users.update_one({"_id": user_id}, {"$set": {"_id": user_id}}, upsert=True)
+ 
+    async def unban_user(user_id):
+        await db.banned_users.delete_one({"_id": user_id})
 
-    async def is_banned(self, user_id: int) -> bool:
-        user = await self.col.find_one({"_id": int(user_id)})
-        if not user:
-            return False
-        return user.get("ban_status", {}).get("is_banned", False)
+    async def is_banned(user_id):
+        return await db.banned_users.find_one({"_id": user_id}) is not None
 
-    async def get_banned_users(self):
-        return self.col.find({"ban_status.is_banned": True})
+    async def get_banned_users():
+        return db.banned_users.find()
 
 
 
