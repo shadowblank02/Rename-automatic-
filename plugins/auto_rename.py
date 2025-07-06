@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.private & filters.command("autorename"))
+@check_ban
 async def auto_rename_command(client, message):
     user_id = message.from_user.id
 
@@ -54,6 +55,7 @@ async def auto_rename_command(client, message):
     )
 
 @Client.on_message(filters.private & filters.command("setmedia"))
+@check_ban
 async def set_media_command(client, message):
     # Define inline keyboard buttons for media type selection
     keyboard = InlineKeyboardMarkup([
