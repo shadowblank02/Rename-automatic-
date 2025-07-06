@@ -16,18 +16,23 @@ from helper.database import codeflixbots
 from config import Config
 from functools import wraps
 
-def check_ban_status(func):
+ADMIN_URL = Config.ADMIN_URL
+
+
+def check_ban(func):
     @wraps(func)
     async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
-        is_banned, ban_reason = await codeflixbots.is_user_banned(user_id)
-        if is_banned:
-            await message.reply_text(
-                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ**"
+        user = await codeflixbots.col.find_one({"_id": user_id})
+        if user and user.get("ban_status", {}).get("is_banned", False):
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
             )
-            return
+            return await message.reply_text(
+                "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+                reply_markup=keyboard
+            )
         return await func(client, message, *args, **kwargs)
-    return wrapper
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -239,6 +244,7 @@ def generate_unique_paths(renamed_file_name):
     return renamed_file_path, metadata_file_path, unique_file_name_for_storage
 
 @Client.on_message(filters.command("start_sequence") & filters.private)
+@check_ban
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id in active_sequences:
@@ -250,6 +256,7 @@ async def start_sequence(client, message: Message):
         message_ids[user_id].append(msg.message_id)
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
+@check_ban
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
 
@@ -279,6 +286,7 @@ async def auto_rename_files(client, message):
     task = asyncio.create_task(auto_rename_file_concurrent(client, message, file_info))
 
 @Client.on_message(filters.command("end_sequence") & filters.private)
+@check_ban
 async def end_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
