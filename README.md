@@ -8,7 +8,7 @@
 ✍️ Set Custom Caption & Metadata
 📡 Broadcast Support
 🚫 NSFW Check (Optional)
-⚙️ Manual or Auto Rename Mode
+⚙️  Auto Rename 
 📬 Admin Panel + Ban System
 ```
 
