@@ -16,10 +16,11 @@ class Database:
         self.codeflixbots = self._client[database_name]
         self.col = self.codeflixbots.user
 
-    def new_user(self, id):
-        return dict(
-            _id=int(id),
-            join_date=datetime.date.today().isoformat(),
+    def new_user(self, id, username=None):
+    return dict(
+        _id=int(id),
+        username=username.lower() if username else None,
+        join_date=datetime.date.today().isoformat(),
             file_id=None,
             caption=None,
             metadata=True,
@@ -36,7 +37,7 @@ class Database:
     async def add_user(self, b, m):
         u = m.from_user
         if not await self.is_user_exist(u.id):
-            user = self.new_user(u.id)
+            user = self.new_user(u.id, u.username)
             try:
                 await self.col.insert_one(user)
                 await send_log(b, u)
