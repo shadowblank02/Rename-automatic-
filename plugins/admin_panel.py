@@ -26,24 +26,37 @@ async def restart_bot(b, m):
         # Restart the bot process
         os.execl(sys.executable, sys.executable, *sys.argv)
 
+
+
 @Client.on_message(filters.command("ban") & filters.user(Config.ADMIN))
 async def ban_user(bot: Client, message: Message):
     try:
         args = message.text.split(maxsplit=2)
         if len(args) < 2:
-            return await message.reply_text("**/ban @username/userid [reason]**")
-        
+            return await message.reply_text("**Usage:** /ban @username/userid [reason]")
+
         user_ref = args[1]
         reason = args[2] if len(args) > 2 else "No reason provided"
 
+        # 🔍 Try to find by username (case-insensitive)
+        user = None
         if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
-        else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
-        
+            user = await codeflixbots.col.find_one({
+                "username": {"$regex": f"^{user_ref[1:]}$", "$options": "i"}
+            })
+
+        # 🔁 If not found by username, try by ID
         if not user:
-            return await message.reply_text("**Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
-        
+            try:
+                user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+            except ValueError:
+                return await message.reply_text("❌ Invalid user ID.")
+
+        # 🧨 Still not found?
+        if not user:
+            return await message.reply_text("❌ **User not found in database.**")
+
+        # ✅ Update ban status
         await codeflixbots.col.update_one(
             {"_id": user["_id"]},
             {"$set": {
@@ -52,9 +65,13 @@ async def ban_user(bot: Client, message: Message):
                 "ban_status.ban_reason": reason
             }}
         )
-        await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ʙᴀɴɴᴇᴅ.**\n**Rᴇᴀsᴏɴ:** {reason}")
+
+        await message.reply_text(
+            f"✅ **User `{user['_id']}` has been banned.**\n**Reason:** {reason}"
+        )
+
     except Exception as e:
-        await message.reply_text(f"**/ban @username/userid [reason]**")
+        await message.reply_text(f"⚠️ Error banning user: {e}")
 
 @Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
 async def unban_user(bot: Client, message: Message):
