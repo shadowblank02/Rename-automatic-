@@ -253,7 +253,7 @@ async def start_sequence(client, message: Message):
         active_sequences[user_id] = []
         message_ids[user_id] = []
         msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs ɴᴏᴡ ʙʀᴏ....Fᴀsᴛ")
-        message_ids[user_id].append(msg.message_id)
+        message_ids[user_id].append(msg.id)
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 @check_ban
@@ -280,7 +280,7 @@ async def auto_rename_files(client, message):
     if user_id in active_sequences:
         active_sequences[user_id].append(file_info)
         reply_msg = await message.reply_text("Wᴇᴡ...ғɪʟᴇs ʀᴇᴄᴇɪᴠᴇᴅ ɴᴏᴡ ᴜsᴇ /end_sequence ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs...!!")
-        message_ids[user_id].append(reply_msg.message_id)
+        message_ids[user_id].append(reply_msg.id)
         return
 
     task = asyncio.create_task(auto_rename_file_concurrent(client, message, file_info))
