@@ -9,16 +9,21 @@ from config import *
 from config import Config
 from functools import wraps 
 
-def check_ban_status(func):
+ADMIN_URL = Config.ADMIN_URL
+
+def check_ban(func):
     @wraps(func)
     async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
-        is_banned, ban_reason = await codeflixbots.is_user_banned(user_id)
-        if is_banned:
-            await message.reply_text(
-                f"**Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.**"
+        user = await codeflixbots.col.find_one({"_id": user_id})
+        if user and user.get("ban_status", {}).get("is_banned", False):
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
             )
-            return
+            return await message.reply_text(
+                "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+                reply_markup=keyboard
+            )
         return await func(client, message, *args, **kwargs)
     return wrapper
 
@@ -27,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
+@check_ban
 async def start(client, message: Message):
     user = message.from_user
     await codeflixbots.add_user(client, message)
@@ -75,13 +81,22 @@ async def start(client, message: Message):
         )
 
 
-# Callback Query Handler
 @Client.on_callback_query()
 async def cb_handler(client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
-    print(f"Callback data received: {data}")  # Debugging line
+    user = await codeflixbots.col.find_one({"_id": user_id})
+    if user and user.get("ban_status", {}).get("is_banned", False):
+        await query.message.edit_text(
+            "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
+            )
+        )
+        return
+
+    # print(f"Callback data received: {data}")  # Debugging line line
 
     if data == "home":
         await query.message.edit_text(
