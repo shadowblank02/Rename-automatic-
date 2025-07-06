@@ -16,6 +16,7 @@ from helper.database import codeflixbots
 from config import Config
 from functools import wraps
 
+ADMIN_URL = Config.ADMIN_URL
 
 
 logger = logging.getLogger(__name__)
