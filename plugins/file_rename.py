@@ -18,6 +18,12 @@ from functools import wraps
 
 ADMIN_URL = Config.ADMIN_URL
 
+def register_handlers(app: Client):
+    app.add_handler(filters.command("start_sequence") & filters.private, start_sequence)
+    app.add_handler(filters.command("end_sequence") & filters.private, end_sequence)
+    app.add_handler(filters.private & (filters.document | filters.video | filters.audio), auto_rename_files)
+
+
 
 def check_ban(func):
     @wraps(func)
@@ -243,7 +249,6 @@ def generate_unique_paths(renamed_file_name):
     
     return renamed_file_path, metadata_file_path, unique_file_name_for_storage
 
-@Client.on_message(filters.command("start_sequence") & filters.private)
 @check_ban
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -255,7 +260,6 @@ async def start_sequence(client, message: Message):
         msg = await message.reply_text("Sᴇǫᴜᴇɴᴄᴇ sᴛᴀʀᴛᴇᴅ! Sᴇɴᴅ ʏᴏᴜʀ ғɪʟᴇs ɴᴏᴡ ʙʀᴏ....Fᴀsᴛ")
         message_ids[user_id].append(msg.id)
 
-@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 @check_ban
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
@@ -285,7 +289,7 @@ async def auto_rename_files(client, message):
 
     task = asyncio.create_task(auto_rename_file_concurrent(client, message, file_info))
 
-@Client.on_message(filters.command("end_sequence") & filters.private)
+
 @check_ban
 async def end_sequence(client, message: Message):
     user_id = message.from_user.id
