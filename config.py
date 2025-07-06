@@ -12,6 +12,7 @@ class Config(object):
     DB_URL  = os.environ.get("DB_URL","")
  
     # other configs
+    ADMIN_URL = "https://t.me/adityaabhinav"
     BOT_UPTIME  = time.time()
     START_PIC   = os.environ.get("START_PIC", "https://graph.org/file/4b306f4b15c23a8f22e58.jpg")
     ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '').split()]
