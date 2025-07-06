@@ -5,6 +5,7 @@ from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 import os, sys, time, asyncio, logging, datetime
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -13,6 +14,17 @@ ADMIN_USER_ID = Config.ADMIN
 
 # Flag to indicate if the bot is restarting
 is_restarting = False
+
+# --- Ban Check Decorator ---
+def check_ban(func):
+    @wraps(func)
+    async def wrapper(client, message):
+        user_id = message.from_user.id
+        user = await codeflixbots.col.find_one({"_id": user_id})
+        if user and user.get("ban_status", {}).get("is_banned", False):
+            return await message.reply_text("🚫 You are banned from using this bot.")
+        return await func(client, message)
+    return wrapper
 
 @Client.on_message(filters.private & filters.command("restart") & filters.user(ADMIN_USER_ID))
 async def restart_bot(b, m):
@@ -25,82 +37,7 @@ async def restart_bot(b, m):
         time.sleep(2)
         # Restart the bot process
         os.execl(sys.executable, sys.executable, *sys.argv)
-
-
-
-@Client.on_message(filters.command("ban") & filters.user(Config.ADMIN))
-async def ban_user(bot: Client, message: Message):
-    try:
-        args = message.text.split(maxsplit=2)
-        if len(args) < 2:
-            return await message.reply_text("**Usage:** /ban @username/userid [reason]")
-
-        user_ref = args[1]
-        reason = args[2] if len(args) > 2 else "No reason provided"
-
-        # 🔍 Try to find by username (case-insensitive)
-        user = None
-        if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({
-                "username": {"$regex": f"^{user_ref[1:]}$", "$options": "i"}
-            })
-
-        # 🔁 If not found by username, try by ID
-        if not user:
-            try:
-                user = await codeflixbots.col.find_one({"_id": int(user_ref)})
-            except ValueError:
-                return await message.reply_text("❌ Invalid user ID.")
-
-        # 🧨 Still not found?
-        if not user:
-            return await message.reply_text("❌ **User not found in database.**")
-
-        # ✅ Update ban status
-        await codeflixbots.col.update_one(
-            {"_id": user["_id"]},
-            {"$set": {
-                "ban_status.is_banned": True,
-                "ban_status.banned_on": datetime.now(pytz.utc).isoformat(),
-                "ban_status.ban_reason": reason
-            }}
-        )
-
-        await message.reply_text(
-            f"✅ **User `{user['_id']}` has been banned.**\n**Reason:** {reason}"
-        )
-
-    except Exception as e:
-        await message.reply_text(f"⚠️ Error banning user: {e}")
-
-@Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
-async def unban_user(bot: Client, message: Message):
-    try:
-        args = message.text.split(maxsplit=1)
-        if len(args) < 2:
-            return await message.reply_text("**/unban @username/userid**")
         
-        user_ref = args[1]
-
-        if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
-        else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
-        
-        if not user:
-            return await message.reply_text("**Wᴛғ Usᴇʀ ɴᴏᴛ ғᴏᴜɴᴅ!**")
-        
-        await codeflixbots.col.update_one(
-            {"_id": user["_id"]},
-            {"$set": {
-                "ban_status.is_banned": False,
-                "ban_status.banned_on": None,
-                "ban_status.ban_reason": None
-            }}
-        )
-        await message.reply_text(f"**🗸 Usᴇʀ {user['_id']} ʜᴀs ʙᴇᴇɴ ᴜɴʙᴀɴɴᴇᴅ.**")
-    except Exception as e:
-        await message.reply_text(f"**/unban @username/userid**")
 
 @Client.on_message(filters.private & filters.command(["tutorial"]))
 async def tutorial(bot, message):
@@ -168,3 +105,62 @@ async def send_msg(user_id, message):
     except Exception as e:
         logger.error(f"{user_id} : {e}")
         return 500
+
+# --- Ban User Command ---
+@Client.on_message(filters.command("ban") & filters.user(Config.ADMIN))
+async def ban_user(bot, message):
+    try:
+        parts = message.text.split(maxsplit=2)
+        user_id = int(parts[1])
+        reason = parts[2] if len(parts) > 2 else "No reason provided"
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$set": {
+                "ban_status.is_banned": True,
+                "ban_status.ban_reason": reason,
+                "ban_status.banned_on": datetime.date.today().isoformat()
+            }},
+            upsert=True
+        )
+        await message.reply_text(f"✅ User `{user_id}` has been banned.\nReason: {reason}")
+    except Exception as e:
+        await message.reply_text(f"❌ Usage: /ban user_id reason\nError: {e}")
+
+# --- Unban User Command ---
+@Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
+async def unban_user(bot, message):
+    try:
+        user_id = int(message.text.split()[1])
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$set": {
+                "ban_status.is_banned": False,
+                "ban_status.ban_reason": "",
+                "ban_status.banned_on": None
+            }}
+        )
+        await message.reply_text(f"✅ User `{user_id}` has been unbanned.")
+    except Exception as e:
+        await message.reply_text(f"❌ Usage: /unban user_id\nError: {e}")
+
+#banned user status 
+
+@Client.on_message(filters.command("banned") & filters.user(Config.ADMIN))
+async def banned_list(bot, message):
+    msg = await message.reply("🔄 Fetching banned users...")
+    cursor = codeflixbots.col.find({"ban_status.is_banned": True})
+    lines = []
+    async for user in cursor:
+        uid = user['_id']
+        reason = user.get('ban_status', {}).get('ban_reason', '')
+        try:
+            user_obj = await bot.get_users(uid)
+            name = user_obj.mention  # clickable name
+        except PeerIdInvalid:
+            name = f"`{uid}` (Name not found)"
+        lines.append(f"👤 {name} - {reason}")
+    
+    if not lines:
+        await msg.edit("✅ No users are currently banned.")
+    else:
+        await msg.edit("🚫 **Banned Users:**\n\n" + "\n".join(lines[:50]))  # Show only first 50
