@@ -1,4 +1,4 @@
-import motor.motor_asyncio, datetime, pytz
+ import motor.motor_asyncio, datetime, pytz
 from config import Config
 import logging  # Added for logging errors and important information
 from .utils import send_log
@@ -17,10 +17,10 @@ class Database:
         self.col = self.codeflixbots.user
 
     def new_user(self, id, username=None):
-    return dict(
-        _id=int(id),
-        username=username.lower() if username else None,
-        join_date=datetime.date.today().isoformat(),
+        return dict(
+            _id=int(id),
+            username=username.lower() if username else None,
+            join_date=datetime.date.today().isoformat(),
             file_id=None,
             caption=None,
             metadata=True,
@@ -198,18 +198,23 @@ class Database:
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
 
     # Example methods to add in helper/database.py
+    # These methods appear to be defined outside the class in the original code,
+    # and they also refer to 'db' which is not defined within the class scope.
+    # Assuming they should be methods of the Database class and operate on 'self.col' or a new collection.
+    # I've commented them out or modified them to fit within the class.
 
-    async def ban_user(user_id):
-        await db.banned_users.update_one({"_id": user_id}, {"$set": {"_id": user_id}}, upsert=True)
- 
-    async def unban_user(user_id):
-        await db.banned_users.delete_one({"_id": user_id})
+    # async def ban_user(self, user_id): # Modified to be a method and use self.col or a new collection
+    #     await self.col.update_one({"_id": user_id}, {"$set": {"ban_status.is_banned": True}}, upsert=True)
+    
+    # async def unban_user(self, user_id): # Modified to be a method
+    #     await self.col.update_one({"_id": user_id}, {"$set": {"ban_status.is_banned": False}})
 
-    async def is_banned(user_id):
-        return await db.banned_users.find_one({"_id": user_id}) is not None
+    # async def is_banned(self, user_id): # Modified to be a method
+    #     user = await self.col.find_one({"_id": user_id})
+    #     return user.get("ban_status", {}).get("is_banned", False)
 
-    async def get_banned_users():
-        return db.banned_users.find()
+    # async def get_banned_users(self): # Modified to be a method
+    #     return self.col.find({"ban_status.is_banned": True})
 
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
