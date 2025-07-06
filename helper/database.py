@@ -197,24 +197,41 @@ class Database:
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
 
-    # Example methods to add in helper/database.py
-    # These methods appear to be defined outside the class in the original code,
-    # and they also refer to 'db' which is not defined within the class scope.
-    # Assuming they should be methods of the Database class and operate on 'self.col' or a new collection.
-    # I've commented them out or modified them to fit within the class.
+    async def ban_user(self, user_id: int, duration_days: int = 0, reason: str = ""):
+        banned_on = datetime.date.today().isoformat()
+        ban_status = {
+            "is_banned": True,
+            "ban_duration": duration_days,
+            "banned_on": banned_on,
+            "ban_reason": reason,
+        }
+        await self.col.update_one(
+            {"_id": int(user_id)},
+            {"$set": {"ban_status": ban_status}},
+            upsert=True
+        )
 
-    # async def ban_user(self, user_id): # Modified to be a method and use self.col or a new collection
-    #     await self.col.update_one({"_id": user_id}, {"$set": {"ban_status.is_banned": True}}, upsert=True)
-    
-    # async def unban_user(self, user_id): # Modified to be a method
-    #     await self.col.update_one({"_id": user_id}, {"$set": {"ban_status.is_banned": False}})
+    async def unban_user(self, user_id: int):
+        ban_status = {
+            "is_banned": False,
+            "ban_duration": 0,
+            "banned_on": datetime.date.max.isoformat(),
+            "ban_reason": "",
+        }
+        await self.col.update_one(
+            {"_id": int(user_id)},
+            {"$set": {"ban_status": ban_status}}
+        )
 
-    # async def is_banned(self, user_id): # Modified to be a method
-    #     user = await self.col.find_one({"_id": user_id})
-    #     return user.get("ban_status", {}).get("is_banned", False)
+    async def is_banned(self, user_id: int) -> bool:
+        user = await self.col.find_one({"_id": int(user_id)})
+        if not user:
+            return False
+        return user.get("ban_status", {}).get("is_banned", False)
 
-    # async def get_banned_users(self): # Modified to be a method
-    #     return self.col.find({"ban_status.is_banned": True})
+    async def get_banned_users(self):
+        return self.col.find({"ban_status.is_banned": True})
+
 
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
