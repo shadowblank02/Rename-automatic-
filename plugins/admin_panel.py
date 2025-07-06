@@ -126,9 +126,39 @@ async def ban_user(bot, message):
     except Exception as e:
         await message.reply_text(f"❌ Usage: /ban user_id reason\nError: {e}")
 
+# --- Ban User Command ---
+@Client.on_message(filters.command("ban"))
+async def ban_user(bot, message):
+    if message.from_user.id not in Config.ADMIN:
+        return await message.reply_text("🚫 You are not authorized to use this command.\nOnly Admins can use `/ban`.", parse_mode="markdown")
+
+    try:
+        parts = message.text.split(maxsplit=2)
+        if len(parts) < 2 or not parts[1].isdigit():
+            return await message.reply_text("❌ Usage: `/ban <user_id> <reason>`", parse_mode="markdown")
+        
+        user_id = int(parts[1])
+        reason = parts[2] if len(parts) > 2 else "No reason provided"
+
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$set": {
+                "ban_status.is_banned": True,
+                "ban_status.ban_reason": reason,
+                "ban_status.banned_on": datetime.date.today().isoformat()
+            }},
+            upsert=True
+        )
+        await message.reply_text(f"✅ User `{user_id}` has been banned.\nReason: {reason}")
+    except Exception as e:
+        await message.reply_text(f"❌ Error while banning:\n{e}")
+
 # --- Unban User Command ---
-@Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
+@Client.on_message(filters.command("unban"))
 async def unban_user(bot, message):
+    if message.from_user.id not in Config.ADMIN:
+        return await message.reply_text("🚫 You are not authorized to use this command.\nOnly Admins can use `/unban`.", parse_mode="markdown")
+
     try:
         user_id = int(message.text.split()[1])
         await codeflixbots.col.update_one(
@@ -141,12 +171,14 @@ async def unban_user(bot, message):
         )
         await message.reply_text(f"✅ User `{user_id}` has been unbanned.")
     except Exception as e:
-        await message.reply_text(f"❌ Usage: /unban user_id\nError: {e}")
+        await message.reply_text(f"❌ Usage: `/unban <user_id>`\nError: {e}")
 
-#banned user status 
-
-@Client.on_message(filters.command("banned") & filters.user(Config.ADMIN))
+# --- Banned Users List ---
+@Client.on_message(filters.command("banned"))
 async def banned_list(bot, message):
+    if message.from_user.id not in Config.ADMIN:
+        return await message.reply_text("🚫 You are not authorized to use this command.\nOnly Admins can use `/banned`.", parse_mode="markdown")
+
     msg = await message.reply("🔄 Fetching banned users...")
     cursor = codeflixbots.col.find({"ban_status.is_banned": True})
     lines = []
@@ -155,12 +187,15 @@ async def banned_list(bot, message):
         reason = user.get('ban_status', {}).get('ban_reason', '')
         try:
             user_obj = await bot.get_users(uid)
-            name = user_obj.mention  # clickable name
+            name = user_obj.mention
         except PeerIdInvalid:
             name = f"`{uid}` (Name not found)"
         lines.append(f"👤 {name} - {reason}")
-    
+
     if not lines:
         await msg.edit("✅ No users are currently banned.")
     else:
-        await msg.edit("🚫 **Banned Users:**\n\n" + "\n".join(lines[:50]))  # Show only first 50
+        if len(lines) >= 50:
+            lines.append("...and more.")
+        await msg.edit("🚫 **Banned Users:**\n\n" + "\n".join(lines[:50]), parse_mode="markdown")
+
