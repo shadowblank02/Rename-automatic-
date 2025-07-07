@@ -70,18 +70,16 @@ Create `.env` or add variables to your hosting panel:
 
 ---
 
-## ❤️ Special Thanks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-* [Pyrogram](https://github.com/pyrogram/pyrogram)
-* [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-* [Seishiro](https://github.com/seishiroxxnotteam)
+<h3 align="center">
+    ─「 ᴄʀᴇᴅɪᴛs 」─
+</h3>
 
----
+- <b>[Sᴇɪsʜɪʀᴏ](https://github.com/•_•)  ➻  [Wʀɪᴛᴇ ᴄᴏᴅᴇs ᴀɴᴅ ᴀᴅᴅ ғᴇᴀᴛᴜʀᴇs] </b>
+- <b>[Mᴀsᴛᴇʀ](https://github.com/•_•)  ➻  [Aᴅᴅ ғᴇᴀᴛᴜʀᴇs ᴀɴᴅ ғɪx ʙᴜɢs] </b>
 
-## 👨‍💻 Developer
+ 
+- <b>Bʏ - Bᴏᴛs ᴋɪɴɢᴅᴏᴍ Tᴇᴀᴍ(https://t.me/botskingdom)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> Support: [Bots Kingdom](https://t.me/BOTSKINGDOMSGROUP)
-
----
-
-**Star** ⭐ the repo to keep it alive & support the developer!
