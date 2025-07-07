@@ -23,10 +23,10 @@ def check_ban(func):
         user = await codeflixbots.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
             keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
+                [[InlineKeyboardButton("Cᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!", url=ADMIN_URL)]]
             )
             return await message.reply_text(
-                "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+                "**Wᴛғ ʏᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴍᴇ ʙʏ ᴏᴜʀ ᴀᴅᴍɪɴ/ᴏᴡɴᴇʀ . Iғ ʏᴏᴜ ᴛʜɪɴᴋs ɪᴛ's ᴍɪsᴛᴀᴋᴇ ᴄʟɪᴄᴋ ᴏɴ ᴄᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!**",
                 reply_markup=keyboard
             )
         return await func(client, message, *args, **kwargs)
@@ -128,9 +128,9 @@ async def ban_user(bot, message):
             }},
             upsert=True
         )
-        await message.reply_text(f"✅ User `{user_id}` has been banned.\nReason: {reason}")
+        await message.reply_text(f"**Usᴇʀ - `{user_id}` Is sᴜᴄᴄᴇssғᴜʟʟʏ ʙᴀɴɴᴇᴅ.\nRᴇᴀsᴏɴ:- {reason}**")
     except Exception as e:
-        await message.reply_text(f"❌ Usage: /ban user_id reason\nError: {e}")
+        await message.reply_text(f"Dᴜᴅᴇ ᴜsᴇ ɪᴛ ʟɪᴋᴇ ᴛʜɪs /ban <ᴜsᴇʀ_ɪᴅ> ʀᴇᴀsᴏɴ")
 
 # --- Unban User Command ---
 @Client.on_message(filters.command("unban") & filters.user(Config.ADMIN))
@@ -145,15 +145,15 @@ async def unban_user(bot, message):
                 "ban_status.banned_on": None
             }}
         )
-        await message.reply_text(f"✅ User `{user_id}` has been unbanned.")
+        await message.reply_text(f"**Usᴇʀ - `{ᴜsᴇʀ_ɪᴅ}` Is sᴜᴄᴄᴇssғᴜʟʟʏ ᴜɴʙᴀɴɴᴇᴅ.**")
     except Exception as e:
-        await message.reply_text(f"❌ Usage: /unban user_id\nError: {e}")
+        await message.reply_text(f"Dᴜᴅᴇ ᴜsᴇ ɪᴛ ʟɪᴋᴇ ᴛʜɪs /unban <ᴜsᴇʀ_ɪᴅ>")
 
 #banned user status 
 
 @Client.on_message(filters.command("banned") & filters.user(Config.ADMIN))
 async def banned_list(bot, message):
-    msg = await message.reply("🔄 Fetching banned users...")
+    msg = await message.reply("**Pʟᴇᴀsᴇ ᴡᴀɪᴛ...**")
     cursor = codeflixbots.col.find({"ban_status.is_banned": True})
     lines = []
     async for user in cursor:
@@ -167,7 +167,7 @@ async def banned_list(bot, message):
         lines.append(f"👤 {name} - {reason}")
     
     if not lines:
-        await msg.edit("✅ No users are currently banned.")
+        await msg.edit("**Nᴏ ᴜsᴇʀ(s) ɪs ᴄᴜʀʀᴇɴᴛʟʏ ʙᴀɴɴᴇᴅ**")
     else:
-        await msg.edit("🚫 **Banned Users:**\n\n" + "\n".join(lines[:50]))  # Show only first 50
+        await msg.edit("🚫 **Bᴀɴɴᴇᴅ ᴜsᴇʀ(s)**\n\n" + "\n".join(lines[:50]))  # Show only first 50
 
