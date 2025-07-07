@@ -13,10 +13,10 @@ def check_ban(func):
         user = await codeflixbots.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
             keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("📩 Contact Admin", url=ADMIN_URL)]]
+                [[InlineKeyboardButton("Cᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!", url=ADMIN_URL)]]
             )
             return await message.reply_text(
-                "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
+                "Wᴛғ ʏᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴍᴇ ʙʏ ᴏᴜʀ ᴀᴅᴍɪɴ/ᴏᴡɴᴇʀ . Iғ ʏᴏᴜ ᴛʜɪɴᴋs ɪᴛ's ᴍɪsᴛᴀᴋᴇ ᴄʟɪᴄᴋ ᴏɴ **ᴄᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!**",
                 reply_markup=keyboard
             )
         return await func(client, message, *args, **kwargs)
