@@ -145,7 +145,7 @@ async def unban_user(bot, message):
                 "ban_status.banned_on": None
             }}
         )
-        await message.reply_text(f"**Usᴇʀ - `{ᴜsᴇʀ_ɪᴅ}` Is sᴜᴄᴄᴇssғᴜʟʟʏ ᴜɴʙᴀɴɴᴇᴅ.**")
+        await message.reply_text(f"**Usᴇʀ - `{user_id}` Is sᴜᴄᴄᴇssғᴜʟʟʏ ᴜɴʙᴀɴɴᴇᴅ.**")
     except Exception as e:
         await message.reply_text(f"Dᴜᴅᴇ ᴜsᴇ ɪᴛ ʟɪᴋᴇ ᴛʜɪs /unban <ᴜsᴇʀ_ɪᴅ>")
 
