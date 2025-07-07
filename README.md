@@ -80,6 +80,6 @@ Create `.env` or add variables to your hosting panel:
 - <b>[Mᴀsᴛᴇʀ](https://github.com/•_•)  ➻  [Aᴅᴅ ғᴇᴀᴛᴜʀᴇs ᴀɴᴅ ғɪx ʙᴜɢs] </b>
 
  
-- <b>Bʏ - [Bᴏᴛs ᴋɪɴɢᴅᴏᴍ] Tᴇᴀᴍ(https://t.me/botskingdom) </b>
+- <b>Bʏ - [Bᴏᴛs ᴋɪɴɢᴅᴏᴍ Tᴇᴀᴍ](https://t.me/botskingdom) </b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
