@@ -8,7 +8,6 @@
 
 ## Features
 
-```
 - [x] Auto File Renamer (based on filename patterns)
 - [x] Supports season, quality, episode and audio extractions in different placeholders 
 - [x] Thumbnail Support
