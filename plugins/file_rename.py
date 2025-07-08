@@ -536,21 +536,38 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
             # --- END FIXED PLACEHOLDER LOGIC ---
 
-            # Clean up extra spaces, brackets, and separators
-            template = re.sub(r'\s{2,}', ' ', template)  # Multiple spaces to single
-            template = re.sub(r'\[\s*-\s*\]', '', template)  # Empty brackets with dash
-            template = re.sub(r'\[\s*\]', '', template)  # Empty brackets
-            template = template.strip()  # Remove leading/trailing whitespace
-            template = re.sub(r'(\s*-\s*){2,}', r' - ', template)  # Multiple dashes
-            template = re.sub(r'\s*-\s*', '-', template)  # Clean dash spacing
-            template = re.sub(r'\s*\.\s*', '.', template)  # Clean dot spacing
-            template = re.sub(r'(\.-|-\.)', '', template)  # Remove dot-dash combinations
+            # --- START Clean up Extra Spaces, Brackets, and Separators (Hyphen Preservation Version) ---
 
-            # Final cleanup for unwanted patterns
-            template = re.sub(r'^\s*[-._\s]+', '', template)  # Leading separators
-            template = re.sub(r'[-._\s]+\s*$', '', template)  # Trailing separators
-            template = re.sub(r'(\s*[-._]+\s*){2,}', r' - ', template)  # Multiple separators
+            # Standardize multiple spaces to single spaces
+            template = re.sub(r'\s{2,}', ' ', template)
 
+            # Remove truly empty square brackets (e.g., "[]" or "[ ]")
+            template = re.sub(r'\[\s*\]', '', template)
+
+            # Remove truly empty parentheses (e.g., "()" or "( )")
+            template = re.sub(r'\(\s*\)', '', template)
+
+            # Remove truly empty curly braces (e.g., "{}" or "{ }")
+            template = re.sub(r'\{\s*\}', '', template)
+
+            # Clean up common unwanted leading/trailing characters and overall whitespace
+            template = template.strip() # Remove leading/trailing whitespace
+            template = re.sub(r'^[._\s]+', '', template) # Remove leading dots, underscores, spaces
+            template = re.sub(r'[._\s]+\s*$', '', template) # Remove trailing dots, underscores, spaces
+
+            # Clean up dot spacing (e.g., "file . name" -> "file.name")
+            template = re.sub(r'\s*\.\s*', '.', template)
+            # Consolidate multiple dots (e.g., "file..name" -> "file.name")
+            template = re.sub(r'\.{2,}', '.', template)
+
+            # Consolidate multiple hyphens (e.g., "---" to "-")
+            # This should NOT affect your " - " if it's already a single hyphen with spaces.
+            template = re.sub(r'-{2,}', '-', template)
+
+            # Final trim just in case any new whitespace was introduced by other regexes
+            template = template.strip()
+
+            # --- END Clean up Extra Spaces, Brackets, and Separators ---
             _, file_extension = os.path.splitext(file_name)
             
             if not file_extension.startswith('.'):
