@@ -82,7 +82,8 @@ Create `.env` or add variables to your hosting panel:
     ─「 ᴄʀᴇᴅɪᴛs 」─
 </h3>
 
-- <b>[Sᴇɪsʜɪʀᴏ](https://github.com/•_•)  ➻  [Wʀɪᴛᴇ ᴄᴏᴅᴇs ᴀɴᴅ ᴀᴅᴅ ғᴇᴀᴛᴜʀᴇs] </b>
+- <b>[Cᴏᴅᴇғʟɪx](https://t.me/CodeFlix_Bots) ➻ [Sᴘᴇᴄɪᴀʟ ᴛʜx ᴛᴏ ᴄᴏᴅᴇғʟɪx ғᴏʀ ʙᴀsᴇ ʀᴇᴘᴏ]</b>
+- <b>[Sᴇɪsʜɪʀᴏ](https://github.com/•_•)  ➻  [Rᴇ ᴡʀɪᴛᴇ ᴄᴏᴅᴇs ᴀɴᴅ ᴀᴅᴅ ғᴇᴀᴛᴜʀᴇs] </b>
 - <b>[Mᴀsᴛᴇʀ](https://github.com/•_•)  ➻  [Aᴅᴅ ғᴇᴀᴛᴜʀᴇs ᴀɴᴅ ғɪx ʙᴜɢs] </b>
 
  
