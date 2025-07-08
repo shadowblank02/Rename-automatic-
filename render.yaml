@@ -5,7 +5,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
-    repo: https://github.com/jishudeveloper/Auto-Rename-Bot.git
+    repo: https://github.com/BOTSKINGDOMS/Auto-Renamer-bot.git
     branch: main
     autoDeploy: false
     envVars:
