@@ -1,3 +1,10 @@
+<h2 align="center">
+  ─「 Aᴜᴛᴏ ʀᴇɴᴀᴍᴇʀ ʙᴏᴛ 」─
+</h2>
+
+
+![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Tʜɪs+ɪs+ᴀ+ᴀᴜᴛᴏ+ʀᴇɴᴀᴍᴇ+ʙᴏᴛ!+ᴡɪᴛʜ+ᴀᴅᴠᴀɴᴄᴇ+ғᴇᴀᴛᴜʀᴇs;ᴄʀᴇᴀᴛᴇᴅ+ʙʏ+Bᴏᴛs+ᴋɪɴɢᴅᴏᴍ+Tᴇᴀᴍ!)</p>
+</p>
 
 ## 🧹 Features
 
