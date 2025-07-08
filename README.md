@@ -20,7 +20,7 @@
 
 ---
 
-## 🛠️ Configuration
+##  Environmental Variables 
 
 Create `.env` or add variables to your hosting panel:
 
@@ -29,6 +29,7 @@ Create `.env` or add variables to your hosting panel:
 | `BOT_TOKEN`           | Get from [@BotFather](https://t.me/BotFather)       |
 | `API_ID` & `API_HASH` | From [my.telegram.org](https://my.telegram.org)     |
 | `ADMIN`               | Your Telegram User ID                               |
+| `ADMIN_URL`           | Admin url            |
 | `LOG_CHANNEL`         | Log channel ID (must start with `-100`)             |
 | `DB_URL`              | MongoDB URI from MongoDB Atlas                      |
 | `DB_NAME`             | Name of your database                               |
