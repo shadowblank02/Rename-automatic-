@@ -6,18 +6,18 @@
 ![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Tʜɪs+ɪs+ᴀ+ᴀᴜᴛᴏ+ʀᴇɴᴀᴍᴇʀ+ʙᴏᴛ!+ᴡɪᴛʜ+ᴀᴅᴠᴀɴᴄᴇ+ғᴇᴀᴛᴜʀᴇs;ᴄʀᴇᴀᴛᴇᴅ+ʙʏ+Bᴏᴛs+ᴋɪɴɢᴅᴏᴍ+Tᴇᴀᴍ!)</p>
 </p>
 
-## 🧹 Features
+## Features
 
 ```
-🗕️ Auto File Renamer (based on filename patterns)
-📁 Rename by Season, Episode, Quality
-🖼️ Thumbnail Support
-✍️ Set Custom Caption & Metadata
-📡 Broadcast Support
-🚫 NSFW Check (Optional)
-⚙️  Auto Rename 
-📬 Admin Panel + Ban System
-```
+- [x] Auto File Renamer (based on filename patterns)
+- [x] Supports season, quality, episode and audio extractions in different placeholders 
+- [x] Thumbnail Support
+- [x] Set Custom Caption & Metadata
+- [x] Broadcast Support
+- [x] NSFW Check (Optional)
+- [x]  Auto Rename 
+- [x] Admin Panel
+- [x] Ban and unban system
 
 ---
 
