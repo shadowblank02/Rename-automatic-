@@ -16,7 +16,7 @@ SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
 class Bot(Client):
     def __init__(self):
         super().__init__(
-            name="codeflixbots",
+            name="Botskingdom",
             api_id=Config.API_ID,
             api_hash=Config.API_HASH,
             bot_token=Config.BOT_TOKEN,
