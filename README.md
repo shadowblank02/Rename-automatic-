@@ -47,27 +47,27 @@ Create `.env` or add variables to your hosting panel:
 
 ---
 
-## 🧾 Available Commands
+## Commands
 
 ```
-/start       - Start the bot
-/tutorial    - See usage guide
-/viewthumb   - View thumbnail
-/delthumb    - Delete thumbnail
-/set_caption - Set your own caption
-/see_caption - View your caption
-/del_caption - Delete your caption
-/setmedia    - Set output file type
-/start_sequence - Start file sequencing
-/end_sequence   - End file sequencing
-/metadata    - View your metadata
+/start       - Sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ
+/toturial     - Sᴇᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ
+/viewthumb   - Vɪᴇᴡ ᴛʜᴜᴍʙɴᴀɪʟ
+/delthumb    - Dᴇʟᴇᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ
+/set_caption - Sᴇᴛ ʏᴏᴜʀ ᴏᴡɴ ᴄᴀᴘᴛɪᴏɴ
+/see_caption - Vɪᴇᴡ ʏᴏᴜʀ ᴄᴀᴘᴛɪᴏɴ
+/del_caption - Dᴇʟᴇᴛᴇ ʏᴏᴜʀ ᴄᴀᴘᴛɪᴏɴ
+/setmidea    - Sᴇᴛ ᴏᴜᴛᴘᴜᴛ ғɪʟᴇ ᴛʏᴘᴇ
+/start_sequence - Sᴛᴀʀᴛ ғɪʟᴇ sᴇǫᴜᴇɴᴄɪɴɢ
+/end_sequence  - Eɴᴅ ғɪʟᴇ sᴇǫᴜᴇɴᴄɪɴɢ
+/metadata    - Vɪᴇᴡ ʏᴏᴜʀ ᴍᴇᴛᴀᴅᴀᴛᴀ
 
-(Admin only)
-/restart     - Restart the bot
-/broadcast   - Broadcast a message
-/ban <id>    - Ban a user
-/unban <id>  - Unban a user
-/banned      - Show banned users
+(Aᴅᴍɪɴ ᴏɴʟʏ)
+/restart     - Rᴇsᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ
+/broadcast  - Bʀᴏᴀᴅᴄᴀsᴛ ᴀ ᴍᴇssᴀɢᴇ
+/ban <id>    - Bᴀɴ ᴀ ᴜsᴇʀ
+/unban <id>  - Uɴʙᴀɴ ᴀ ᴜsᴇʀ
+/banned      - Sʜᴏᴡ ʙᴀɴɴᴇᴅ ᴜsᴇʀs
 ```
 
 ---
