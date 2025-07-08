@@ -1,3 +1,5 @@
+![1](https://iili.io/F1uWoQf.md.jpg)
+
 <h2 align="center">
   ─「Aᴜᴛᴏ ʀᴇɴᴀᴍᴇʀ ʙᴏᴛ」─
 </h2>
@@ -82,6 +84,7 @@ Create `.env` or add variables to your hosting panel:
 /unban <id>  - Uɴʙᴀɴ ᴀ ᴜsᴇʀ
 /banned      - Sʜᴏᴡ ʙᴀɴɴᴇᴅ ᴜsᴇʀs
 ```
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
