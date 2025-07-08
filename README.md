@@ -3,7 +3,7 @@
 </h2>
 
 
-![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Tʜɪs+ɪs+ᴀ+ᴀᴜᴛᴏ+ʀᴇɴᴀᴍᴇʀ+ʙᴏᴛ!+ᴡɪᴛʜ+ᴀᴅᴠᴀɴᴄᴇ+ғᴇᴀᴛᴜʀᴇs;ᴄʀᴇᴀᴛᴇᴅ+ʙʏ+Bᴏᴛs+ᴋɪɴɢᴅᴏᴍ+Tᴇᴀᴍ!)</p>
+![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Tʜɪs+ɪs+ᴀ+ᴀᴜᴛᴏ+ʀᴇɴᴀᴍᴇʀ+ʙᴏᴛ!+ᴡɪᴛʜ;ᴀᴅᴠᴀɴᴄᴇ+ғᴇᴀᴛᴜʀᴇs;ᴄʀᴇᴀᴛᴇᴅ+ʙʏ+Bᴏᴛs+ᴋɪɴɢᴅᴏᴍ+Tᴇᴀᴍ!)</p>
 </p>
 
 ## Features
