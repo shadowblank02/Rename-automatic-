@@ -17,10 +17,10 @@ def start_sequence(update: Update, context: CallbackContext):
     update.message.reply_text("File sequencing started. Send documents and videos. Use /end_sequence to finish.")
 
 def detect_quality(file_name):
-    """ Detects video quality from filename """
-    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
-    match = re.search(r"(480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
+    """Detects quality for sorting, not for direct filename replacement."""
+    quality_order = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(360p|480p|720p|1080p)", file_name, re.IGNORECASE)
+    return quality_order.get(match.group(1).lower(), 4) if match else 4
 
 def process_file(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
