@@ -20,7 +20,7 @@ def check_ban(func):
     @wraps(func)
     async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
-        user = await codeflixbots.col.find_one({"_id": user_id})
+        user = await Botskingdom.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Cᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!", url=ADMIN_URL)]]
@@ -48,7 +48,7 @@ async def restart_bot(b, m):
 @Client.on_message(filters.private & filters.command(["tutorial"]))
 async def tutorial(bot, message):
     user_id = message.from_user.id
-    format_template = await codeflixbots.get_format_template(user_id)
+    format_template = await Botskingdom.get_format_template(user_id)
     await message.reply_text(
         text=Txt.FILE_NAME_TXT.format(format_template=format_template),
         disable_web_page_preview=True,
@@ -59,7 +59,7 @@ async def tutorial(bot, message):
 
 @Client.on_message(filters.command(["stats", "status"]) & filters.user(Config.ADMIN))
 async def get_stats(bot, message):
-    total_users = await codeflixbots.total_users_count()
+    total_users = await Botskingdom.total_users_count()
     uptime = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - bot.uptime))
     start_t = time.time()
     st = await message.reply('**Accessing The Details.....**')
@@ -70,14 +70,14 @@ async def get_stats(bot, message):
 @Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN) & filters.reply)
 async def broadcast_handler(bot: Client, m: Message):
     await bot.send_message(Config.LOG_CHANNEL, f"{m.from_user.mention} or {m.from_user.id} Is Started The Broadcast......")
-    all_users = await codeflixbots.get_all_users()
+    all_users = await Botskingdom.get_all_users()
     broadcast_msg = m.reply_to_message
     sts_msg = await m.reply_text("Broadcast Started..!") 
     done = 0
     failed = 0
     success = 0
     start_time = time.time()
-    total_users = await codeflixbots.total_users_count()
+    total_users = await Botskingdom.total_users_count()
     async for user in all_users:
         sts = await send_msg(user['_id'], broadcast_msg)
         if sts == 200:
@@ -85,7 +85,7 @@ async def broadcast_handler(bot: Client, m: Message):
         else:
            failed += 1
         if sts == 400:
-           await codeflixbots.delete_user(user['_id'])
+           await Botskingdom.delete_user(user['_id'])
         done += 1
         if not done % 20:
            await sts_msg.edit(f"Broadcast In Progress: \n\nTotal Users {total_users} \nCompleted : {done} / {total_users}\nSuccess : {success}\nFailed : {failed}")
@@ -119,7 +119,7 @@ async def ban_user(bot, message):
         parts = message.text.split(maxsplit=2)
         user_id = int(parts[1])
         reason = parts[2] if len(parts) > 2 else "No reason provided"
-        await codeflixbots.col.update_one(
+        await Botskingdom.col.update_one(
             {"_id": user_id},
             {"$set": {
                 "ban_status.is_banned": True,
@@ -137,7 +137,7 @@ async def ban_user(bot, message):
 async def unban_user(bot, message):
     try:
         user_id = int(message.text.split()[1])
-        await codeflixbots.col.update_one(
+        await Botskingdom.col.update_one(
             {"_id": user_id},
             {"$set": {
                 "ban_status.is_banned": False,
@@ -154,7 +154,7 @@ async def unban_user(bot, message):
 @Client.on_message(filters.command("banned") & filters.user(Config.ADMIN))
 async def banned_list(bot, message):
     msg = await message.reply("**Pʟᴇᴀsᴇ ᴡᴀɪᴛ...**")
-    cursor = codeflixbots.col.find({"ban_status.is_banned": True})
+    cursor = Botskingdom.col.find({"ban_status.is_banned": True})
     lines = []
     async for user in cursor:
         uid = user['_id']
