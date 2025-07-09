@@ -4,7 +4,7 @@ import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
-from helper.database import codeflixbots
+from helper.database import Botskingdom
 from config import *
 from config import Config
 from functools import wraps 
@@ -15,7 +15,7 @@ def check_ban(func):
     @wraps(func)
     async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
-        user = await codeflixbots.col.find_one({"_id": user_id})
+        user = await Botskingdom.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Cᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!", url=ADMIN_URL)]]
@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 @check_ban
 async def start(client, message: Message):
     user = message.from_user
-    await codeflixbots.add_user(client, message)
+    await Botskingdom.add_user(client, message)
 
     # Initial interactive text and sticker sequence
     m = await message.reply_text("Wᴇᴡ...Hᴏᴡ ᴀʀᴇ ʏᴏᴜ ᴅᴜᴅᴇ \nᴡᴀɪᴛ ᴀ ᴍᴏᴍᴇɴᴛ. . .")
@@ -86,7 +86,7 @@ async def cb_handler(client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
-    user = await codeflixbots.col.find_one({"_id": user_id})
+    user = await Botskingdom.col.find_one({"_id": user_id})
     if user and user.get("ban_status", {}).get("is_banned", False):
         await query.message.edit_text(
             "🚫 You are banned from using this bot.\n\nIf you think this is a mistake, contact the admin.",
@@ -145,7 +145,7 @@ async def cb_handler(client, query: CallbackQuery):
             ])
         )
     elif data == "file_names":
-        format_template = await codeflixbots.get_format_template(user_id)
+        format_template = await Botskingdom.get_format_template(user_id)
         await query.message.edit_text(
             text=Txt.FILE_NAME_TXT.format(format_template=format_template),
             disable_web_page_preview=True,
@@ -186,13 +186,3 @@ async def cb_handler(client, query: CallbackQuery):
         except:
             await query.message.delete()
             await query.message.continue_propagation()
-
-
-
-
-
-
-# Jishu Developer 
-# Don't Remove Credit 🥺
-# Telegram Channel @Madflix_Bots
-# Developer @JishuDeveloper
