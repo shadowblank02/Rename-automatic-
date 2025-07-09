@@ -6,15 +6,15 @@ TOKEN = ""
 user_file_sequences = {}
 
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Welcome! Use /ssequence to start file sequencing, /esequence to finish, and /cancel to cancel.")
+    update.message.reply_text("Welcome! Use /start_sequence to start file sequencing, /esequence to finish, and /cancel to cancel.")
 
 def start_sequence(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if user_id in user_file_sequences:
-        update.message.reply_text("You already have an active sequencing session. Use /esequence to complete it.")
+        update.message.reply_text("You already have an active sequencing session. Use /end_sequence to complete it.")
         return
     user_file_sequences[user_id] = []
-    update.message.reply_text("File sequencing started. Send documents and videos. Use /esequence to finish.")
+    update.message.reply_text("File sequencing started. Send documents and videos. Use /end_sequence to finish.")
 
 def detect_quality(file_name):
     """ Detects video quality from filename """
@@ -25,7 +25,7 @@ def detect_quality(file_name):
 def process_file(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if user_id not in user_file_sequences:
-        update.message.reply_text("Start a sequence first using /ssequence.")
+        update.message.reply_text("Start a sequence first using /start_sequence.")
         return
     file = update.message.document or update.message.video
     if file:
