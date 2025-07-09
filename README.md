@@ -66,13 +66,13 @@ Create `.env` or add variables to your hosting panel:
 
 ```
 /start       - Sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ
-/toturial     - Sᴇᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ
+/tutorial     - Sᴇᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ
 /viewthumb   - Vɪᴇᴡ ᴛʜᴜᴍʙɴᴀɪʟ
 /delthumb    - Dᴇʟᴇᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ
 /set_caption - Sᴇᴛ ʏᴏᴜʀ ᴏᴡɴ ᴄᴀᴘᴛɪᴏɴ
 /see_caption - Vɪᴇᴡ ʏᴏᴜʀ ᴄᴀᴘᴛɪᴏɴ
 /del_caption - Dᴇʟᴇᴛᴇ ʏᴏᴜʀ ᴄᴀᴘᴛɪᴏɴ
-/setmidea    - Sᴇᴛ ᴏᴜᴛᴘᴜᴛ ғɪʟᴇ ᴛʏᴘᴇ
+/setmedia    - Sᴇᴛ ᴏᴜᴛᴘᴜᴛ ғɪʟᴇ ᴛʏᴘᴇ
 /start_sequence - Sᴛᴀʀᴛ ғɪʟᴇ sᴇǫᴜᴇɴᴄɪɴɢ
 /end_sequence  - Eɴᴅ ғɪʟᴇ sᴇǫᴜᴇɴᴄɪɴɢ
 /metadata    - Vɪᴇᴡ ʏᴏᴜʀ ᴍᴇᴛᴀᴅᴀᴛᴀ
