@@ -164,7 +164,7 @@ async def banned_list(bot, message):
             name = user_obj.mention  # clickable name
         except PeerIdInvalid:
             name = f"`{uid}` (Name not found)"
-        lines.append(f"👤 {name} - {reason}")
+        lines.append(f"• {name} - {reason}")
     
     if not lines:
         await msg.edit("**Nᴏ ᴜsᴇʀ(s) ɪs ᴄᴜʀʀᴇɴᴛʟʏ ʙᴀɴɴᴇᴅ**")
