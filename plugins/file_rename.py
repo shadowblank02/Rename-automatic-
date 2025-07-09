@@ -12,7 +12,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from plugins.antinsfw import check_anti_nsfw
 from helper.utils import progress_for_pyrogram, humanbytes, convert
-from helper.database import codeflixbots
+from helper.database import Botskingdom
 from config import Config
 from functools import wraps
 
@@ -41,7 +41,7 @@ def check_ban(func):
     @wraps(func)
     async def wrapper(client, message, *args, **kwargs):
         user_id = message.from_user.id
-        user = await codeflixbots.col.find_one({"_id": user_id})
+        user = await Botskingdom.col.find_one({"_id": user_id})
         if user and user.get("ban_status", {}).get("is_banned", False):
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Cᴏɴᴛᴀᴄᴛ ʜᴇʀᴇ...!!", url=ADMIN_URL)]]
@@ -433,8 +433,8 @@ async def auto_rename_file_concurrent(client, message, file_info):
                     return
             renaming_operations[file_id] = datetime.now()
 
-            format_template = await codeflixbots.get_format_template(user_id)
-            media_preference = await codeflixbots.get_media_preference(user_id)
+            format_template = await Botskingdom.get_format_template(user_id)
+            media_preference = await Botskingdom.get_media_preference(user_id)
 
             if not format_template:
                 await message.reply_text("Pʟᴇᴀsᴇ Sᴇᴛ Aɴ Aᴜᴛᴏ Rᴇɴᴀᴍᴇ Fᴏʀᴍᴀᴛ Fɪʀsᴛ Usɪɴɢ /autorename")
@@ -598,14 +598,14 @@ async def auto_rename_file_concurrent(client, message, file_info):
                 metadata_command = [
                     ffmpeg_cmd,
                     '-i', path,
-                    '-metadata', f'title={await codeflixbots.get_title(user_id)}',
-                    '-metadata', f'artist={await codeflixbots.get_artist(user_id)}',
-                    '-metadata', f'author={await codeflixbots.get_author(user_id)}',
-                    '-metadata:s:v', f'title={await codeflixbots.get_video(user_id)}',
-                    '-metadata:s:a', f'title={await codeflixbots.get_audio(user_id)}',
-                    '-metadata:s:s', f'title={await codeflixbots.get_subtitle(user_id)}',
-                    '-metadata', f'encoded_by={await codeflixbots.get_encoded_by(user_id)}',
-                    '-metadata', f'custom_tag={await codeflixbots.get_custom_tag(user_id)}',
+                    '-metadata', f'title={await Botskingdom.get_title(user_id)}',
+                    '-metadata', f'artist={await Botskingdom.get_artist(user_id)}',
+                    '-metadata', f'author={await Botskingdom.get_author(user_id)}',
+                    '-metadata:s:v', f'title={await Botskingdom.get_video(user_id)}',
+                    '-metadata:s:a', f'title={await Botskingdom.get_audio(user_id)}',
+                    '-metadata:s:s', f'title={await Botskingdom.get_subtitle(user_id)}',
+                    '-metadata', f'encoded_by={await Botskingdom.get_encoded_by(user_id)}',
+                    '-metadata', f'custom_tag={await Botskingdom.get_custom_tag(user_id)}',
                     '-map', '0',
                     '-c', 'copy',
                     '-loglevel', 'error',
@@ -624,8 +624,8 @@ async def auto_rename_file_concurrent(client, message, file_info):
 
                 await download_msg.edit("Wᴇᴡ... Iᴀm Uᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...!!")
 
-                c_caption = await codeflixbots.get_caption(message.chat.id)
-                c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
+                c_caption = await Botskingdom.get_caption(message.chat.id)
+                c_thumb = await Botskingdom.get_thumbnail(message.chat.id)
 
                 caption = (
                     c_caption.format(
