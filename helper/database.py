@@ -13,8 +13,8 @@ class Database:
         except Exception as e:
             logging.error(f"Failed to connect to MongoDB: {e}")
             raise e  # Re-raise the exception after logging it
-        self.codeflixbots = self._client[database_name]
-        self.col = self.codeflixbots.user
+        self.Botskingdom = self._client[database_name]
+        self.col = self.Botskingdom.user
 
     def new_user(self, id, username=None):
         return dict(
@@ -24,7 +24,7 @@ class Database:
             file_id=None,
             caption=None,
             metadata=True,
-            metadata_code="Telegram : @codeflixbots",
+            metadata_code="Telegram : @botskingdoms",
             format_template=None,
             ban_status=dict(
                 is_banned=False,
@@ -213,4 +213,4 @@ class Database:
 
 
 
-codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
+Botskingdom = Database(Config.DB_URL, Config.DB_NAME)
