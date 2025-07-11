@@ -13,6 +13,8 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 pyrogram.utils.MIN_CHANNEL_ID = -1002822095762
 SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "@botskingdomschat")
 
+PORT = Config.PORT
+
 class Bot(Client):
     def __init__(self):
         super().__init__(
