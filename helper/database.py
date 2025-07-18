@@ -208,3 +208,6 @@ class Database:
 
     async def get_banned_users():
         return db.banned_users.find()
+
+
+Botskingdom = Database(Config.DB_URL, Config.DB_NAME)
