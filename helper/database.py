@@ -28,7 +28,11 @@ class Database:
             format_template=None,
             ban_status=dict(
                 is_banned=False,
-@@ -37,7 +36,7 @@ def new_user(self, id, username=None):
+                banned_on=datetime.date.max.isoformat(),
+                ban_reason=''
+            )
+        )
+        
     async def add_user(self, b, m):
         u = m.from_user
         if not await self.is_user_exist(u.id):
@@ -135,8 +139,6 @@ class Database:
 
     async def set_metadata(self, user_id, metadata):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'metadata': metadata}})
-        
-@@ -143,74 +142,59 @@ async def set_metadata(self, user_id, metadata):
 
     async def get_title(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
